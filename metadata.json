@@ -1,0 +1,5 @@
+{
+  "name": "KM Profit",
+  "description": "A high-velocity financial management tool for professional drivers to track earnings, expenses, and profit goals.",
+  "requestFramePermissions": ["microphone"]
+}

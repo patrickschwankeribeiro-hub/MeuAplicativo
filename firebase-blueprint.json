@@ -1,0 +1,113 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Information about the user and their vehicle",
+      "type": "object",
+      "properties": {
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "birthDate": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "goals": {
+          "type": "object",
+          "properties": {
+            "monthly": { "type": "number" },
+            "daily": { "type": "number" },
+            "weekly": { "type": "number" },
+            "yearly": { "type": "number" }
+          }
+        },
+        "vehicle": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "type": { "type": "string", "enum": ["car", "motorcycle", "truck", "van", "bus", "pickup"] },
+            "plate": { "type": "string" },
+            "tankCapacity": { "type": "string" },
+            "currentOdometer": { "type": "number" }
+          }
+        }
+      },
+      "required": ["firstName", "lastName", "email"]
+    },
+    "IncomeRecord": {
+      "title": "Income Record",
+      "description": "A record of income earned by the driver",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "notes": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "totalTrips": { "type": "number" },
+        "hoursWorked": { "type": "string" },
+        "kmDriven": { "type": "number" },
+        "type": { "type": "string", "enum": ["fixed", "variable"] },
+        "frequency": { "type": "string" },
+        "status": { "type": "string" },
+        "isRecurring": { "type": "boolean" },
+        "parentId": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "platform": { "type": "string" },
+              "amount": { "type": "string" },
+              "trips": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["date", "totalAmount"]
+    },
+    "ExpenseRecord": {
+      "title": "Expense Record",
+      "description": "A record of an expense spent by the driver",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "amount": { "type": "string" },
+        "category": { "type": "string" },
+        "date": { "type": "string" },
+        "notes": { "type": "string" },
+        "fuelType": { "type": "string" },
+        "maintenanceType": { "type": "string" },
+        "maintenanceGroup": { "type": "string", "enum": ["preventive", "corrective"] },
+        "subCategory": { "type": "string" },
+        "costType": { "type": "string", "enum": ["fixed", "variable"] },
+        "liters": { "type": "string" },
+        "pricePerLiter": { "type": "string" },
+        "gnvVolume": { "type": "string" },
+        "gnvPrice": { "type": "string" },
+        "odometer": { "type": "string" },
+        "isFullTank": { "type": "boolean" },
+        "attachmentUrl": { "type": "string" },
+        "frequency": { "type": "string" },
+        "status": { "type": "string" },
+        "isRecurring": { "type": "boolean" },
+        "parentId": { "type": "string" }
+      },
+      "required": ["amount", "category", "date"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "The user's profile information"
+    },
+    "/users/{userId}/incomes/{incomeId}": {
+      "schema": "IncomeRecord",
+      "description": "Collection of user's income records"
+    },
+    "/users/{userId}/expenses/{expenseId}": {
+      "schema": "ExpenseRecord",
+      "description": "Collection of user's expense records"
+    }
+  }
+}

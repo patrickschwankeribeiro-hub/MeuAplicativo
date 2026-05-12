@@ -1,0 +1,103 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email in ['meublogestrutura@gmail.com', 'kmprofit@proton.me']
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation Blueprints
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['firstName', 'lastName', 'email']) &&
+             data.firstName is string && data.firstName.size() <= 100 &&
+             data.lastName is string && data.lastName.size() <= 100 &&
+             data.email is string && data.email.size() <= 200;
+    }
+
+    function isValidIncomeRecord(data) {
+      return data.keys().hasAll(['date', 'totalAmount']) &&
+             data.date is string &&
+             data.totalAmount is number;
+    }
+
+    function isValidExpenseRecord(data) {
+      return data.keys().hasAll(['amount', 'category', 'date']) &&
+             data.amount is string &&
+             data.category is string &&
+             data.date is string;
+    }
+
+    // Routes
+    match /users/{userId} {
+      allow get: if (isOwner(userId) || isAdmin()) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming());
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'firstName', 'lastName', 'phone', 'birthDate', 'city', 'state', 'avatarUrl', 'goals', 'vehicle', 'uid', 'createdAt'
+        ])
+      );
+      allow delete: if isAdmin() && isValidId(userId);
+
+      match /incomes/{incomeId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(incomeId);
+        allow create: if isOwner(userId) && isValidId(incomeId) && isValidIncomeRecord(incoming());
+        allow update: if isOwner(userId) && isValidId(incomeId) && isValidIncomeRecord(incoming()) && (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'date', 'notes', 'totalAmount', 'totalTrips', 'hoursWorked', 'kmDriven', 'type', 'frequency', 'status', 'isRecurring', 'parentId', 'items'
+          ])
+        );
+        allow delete: if isOwner(userId) && isValidId(incomeId);
+      }
+
+      match /expenses/{expenseId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(expenseId);
+        allow create: if isOwner(userId) && isValidId(expenseId) && isValidExpenseRecord(incoming());
+        allow update: if isOwner(userId) && isValidId(expenseId) && isValidExpenseRecord(incoming()) && (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'amount', 'category', 'date', 'notes', 'fuelType', 'maintenanceType', 'maintenanceGroup', 'subCategory', 'costType', 'liters', 'pricePerLiter', 'gnvVolume', 'gnvPrice', 'odometer', 'isFullTank', 'attachmentUrl', 'frequency', 'status', 'isRecurring', 'parentId'
+          ])
+        );
+        allow delete: if isOwner(userId) && isValidId(expenseId);
+      }
+    }
+
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only manageable via Firebase Console or manual entry
+    }
+  }
+}

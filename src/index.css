@@ -1,0 +1,114 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-headline: "Plus Jakarta Sans", sans-serif;
+
+  --color-background: #fcf9f8;
+  --color-surface: #fcf9f8;
+  --color-surface-container-low: #f6f3f2;
+  --color-surface-container-high: #ebe7e7;
+  --color-surface-container-highest: #e5e2e1;
+  --color-surface-container-lowest: #ffffff;
+
+  --color-primary: #006397;
+  --color-primary-container: #3498db;
+  --color-on-primary: #ffffff;
+
+  --color-secondary: #006d37;
+  --color-secondary-container: #6bfe9c;
+  --color-on-secondary: #ffffff;
+
+  --color-tertiary: #4e6073;
+  --color-tertiary-container: #8093a8;
+
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+
+  --color-on-surface: #1c1b1b;
+  --color-on-surface-variant: #3f4850;
+  --color-outline: #707881;
+  --color-outline-variant: #bfc7d2;
+
+  /* shadcn/ui variables mapped to app theme */
+  --color-border: var(--color-outline-variant);
+  --color-input: var(--color-outline-variant);
+  --color-ring: var(--color-primary);
+  --color-foreground: var(--color-on-surface);
+  --color-primary-foreground: var(--color-on-primary);
+  --color-secondary-foreground: var(--color-on-secondary);
+  --color-destructive: var(--color-error);
+  --color-destructive-foreground: var(--color-on-primary);
+  --color-muted: var(--color-surface-container-high);
+  --color-muted-foreground: var(--color-on-surface-variant);
+  --color-accent: var(--color-surface-container-low);
+  --color-accent-foreground: var(--color-on-surface);
+  --color-popover: var(--color-surface-container-lowest);
+  --color-popover-foreground: var(--color-on-surface);
+  --color-card: var(--color-surface-container-lowest);
+  --color-card-foreground: var(--color-on-surface);
+  --radius: 0.75rem;
+}
+
+@layer base {
+  .dark {
+    --color-background: #1c1b1b;
+    --color-surface: #1c1b1b;
+    --color-surface-container-low: #252424;
+    --color-surface-container-high: #302f2f;
+    --color-surface-container-highest: #3b3a3a;
+    --color-surface-container-lowest: #121212;
+
+    --color-primary: #91ccff;
+    --color-primary-container: #004a75;
+    --color-on-primary: #003355;
+
+    --color-secondary: #00e676;
+    --color-secondary-container: #005328;
+    --color-on-secondary: #003919;
+
+    --color-on-surface: #e5e2e1;
+    --color-on-surface-variant: #bfc7d2;
+    --color-outline: #8a929b;
+    --color-outline-variant: #44474e;
+  }
+
+  body {
+    @apply font-sans antialiased transition-colors duration-500 bg-background text-foreground;
+  }
+
+  .bg-surface-container-lowest,
+  .bg-surface-container-low,
+  .bg-surface-container,
+  .bg-surface-container-high,
+  .bg-surface-container-highest,
+  .text-on-surface,
+  .text-on-surface-variant {
+    @apply transition-colors duration-500;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+.data-privacy-mask {
+  transition: filter 0.3s ease;
+}
+
+.privacy-hidden .data-privacy-mask {
+  filter: blur(16px);
+  pointer-events: none;
+  user-select: none;
+}
