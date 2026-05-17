@@ -48,10 +48,7 @@
         "hoursWorked": { "type": "string" },
         "kmDriven": { "type": "number" },
         "type": { "type": "string", "enum": ["fixed", "variable"] },
-        "frequency": { "type": "string" },
         "status": { "type": "string" },
-        "isRecurring": { "type": "boolean" },
-        "parentId": { "type": "string" },
         "items": {
           "type": "array",
           "items": {
@@ -88,10 +85,7 @@
         "odometer": { "type": "string" },
         "isFullTank": { "type": "boolean" },
         "attachmentUrl": { "type": "string" },
-        "frequency": { "type": "string" },
-        "status": { "type": "string" },
-        "isRecurring": { "type": "boolean" },
-        "parentId": { "type": "string" }
+        "status": { "type": "string" }
       },
       "required": ["amount", "category", "date"]
     }

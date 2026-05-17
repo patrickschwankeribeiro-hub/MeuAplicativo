@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Fuel, 
   Wrench, 
@@ -24,19 +25,34 @@ import {
   Target,
   Mic,
   Loader2,
-  Check
+  Check,
+  Droplets,
+  Triangle,
+  Radar,
+  KeyRound,
+  Car,
+  Bike,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
-import { ExpenseRecord, Screen, Category, UserProfile } from '../types';
+import { ExpenseRecord, Screen, Category, UserProfile, GoalHistory } from '../types';
 import { FUEL_SUBCATEGORIES, MAINTENANCE_SUBCATEGORIES, FOOD_SUBCATEGORIES } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { parseLocaleNumber, formatLocaleCurrency, formatMaskedCurrency } from '../lib/currency';
 import { DatePicker } from '../../components/ui/date-picker';
 import { parseVoiceCommand } from '../services/aiService';
 import { VoiceVisualizer } from './ui/VoiceVisualizer';
-import { TransactionFrequency } from '../types';
+
+const VehicleRentIcon = ({ size, className }: { size: number; className?: string }) => (
+  <div className={`flex items-center gap-0.5 ${className}`}>
+    <Car size={size * 0.9} />
+    <span className="opacity-30">|</span>
+    <Bike size={size} />
+  </div>
+);
 
 const iconMap: Record<string, any> = {
-  Fuel, Wrench, Utensils, Key, SquareParking, Truck, Gavel, Milestone, Wifi, IdCard, Ship, FileText, Tag, Target
+  Fuel, Wrench, Utensils, Key, KeyRound, SquareParking, Truck, Gavel, Milestone, Wifi, IdCard, Ship, FileText, Tag, Target, Droplets, Triangle, Radar, VehicleRent: VehicleRentIcon
 };
 
 interface AddExpenseScreenProps {
@@ -48,8 +64,10 @@ interface AddExpenseScreenProps {
   onSaveCategories: (categories: Category[]) => void;
   userProfile: UserProfile;
   onSaveProfile: (profile: UserProfile) => void;
-  initialData?: Partial<ExpenseRecord> & { isFixedMode?: boolean };
+  goalHistory?: GoalHistory;
+  initialData?: Partial<ExpenseRecord>;
   key?: React.Key;
+  activeVehicleId?: string | null;
 }
 
 export function AddExpenseScreen({ 
@@ -61,7 +79,9 @@ export function AddExpenseScreen({
   onSaveCategories,
   userProfile, 
   onSaveProfile, 
-  initialData 
+  goalHistory = {},
+  initialData,
+  activeVehicleId
 }: AddExpenseScreenProps) {
   const { t, language } = useLanguage();
   const [amount, setAmount] = useState(() => {
@@ -75,40 +95,12 @@ export function AddExpenseScreen({
   const [editingId, setEditingId] = useState<number | null>(initialData?.id || null);
 
   const currentCategoryObj = categories.find(c => c.id === selectedCategory);
-  
-  const currentGoal = React.useMemo(() => {
-    const d = new Date(date + 'T12:00:00');
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    return userProfile.goalHistory?.[key];
-  }, [date, userProfile.goalHistory]);
 
-  const budgetLimit = currentGoal?.categoryBudgets?.[selectedCategory] || 0;
-
-  const isFixedMode = initialData?.isFixedMode || currentCategoryObj?.costType === 'fixed';
-
-  const categorySpending = React.useMemo(() => {
-    const currentMonth = new Date(date + 'T12:00:00').getMonth();
-    const currentYear = new Date(date + 'T12:00:00').getFullYear();
-    
-    return expenses
-      .filter(e => {
-        const d = new Date(e.date + 'T12:00:00');
-        return e.category === selectedCategory && 
-               d.getMonth() === currentMonth && 
-               d.getFullYear() === currentYear &&
-               e.id !== editingId;
-      })
-      .reduce((acc, e) => acc + parseLocaleNumber(e.amount, language), 0);
-  }, [expenses, selectedCategory, date, editingId, language]);
-
-  const budgetProgress = budgetLimit > 0 ? (categorySpending / budgetLimit) * 100 : 0;
-  
-  const [fuelType, setFuelType] = useState(initialData?.fuelType || 'gasolineCommon');
-  
+  const [fuelType, setFuelType] = useState(initialData?.fuelType || FUEL_SUBCATEGORIES[0]);
   const [subCategory, setSubCategory] = useState(initialData?.subCategory || '');
   const [notes, setNotes] = useState(initialData?.notes || '');
-  const [attachmentUrl, setAttachmentUrl] = useState<string | undefined>(initialData?.attachmentUrl);
-
+  const [attachmentUrl, setAttachmentUrl] = useState(initialData?.attachmentUrl);
+  
   const [liters, setLiters] = useState(() => {
     if (typeof (initialData as any)?.liters === 'number') {
       return (initialData as any).liters.toString().replace('.', ',');
@@ -143,8 +135,8 @@ export function AddExpenseScreen({
   });
   const [odometer, setOdometer] = useState(initialData?.odometer || '');
   const [isFullTank, setIsFullTank] = useState(initialData?.isFullTank || false);
-  const [fuelLevel, setFuelLevel] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>('');
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
   const [activeField, setActiveField] = useState<'amount' | 'liters' | 'pricePerLiter' | 'gnvVolume' | 'gnvPrice' | 'odometer'>('amount');
   const [isRecording, setIsRecording] = useState(false);
@@ -153,6 +145,33 @@ export function AddExpenseScreen({
   const [recognitionInstance, setRecognitionInstance] = useState<any>(null);
   const [lastTranscript, setLastTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
+
+  // Budget logic - Using goalHistory for accuracy
+  const currentGoal = React.useMemo(() => {
+    if (!activeVehicleId) return undefined;
+    const d = new Date(date + 'T12:00:00');
+    const periodKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const key = `${activeVehicleId}_${periodKey}`;
+    return goalHistory[key];
+  }, [date, goalHistory, activeVehicleId]);
+
+  const budgetLimit = currentGoal?.categoryBudgets?.[selectedCategory] || 0;
+  
+  const currentMonthIdx = new Date(date + 'T12:00:00').getMonth();
+  const currentYear = new Date(date + 'T12:00:00').getFullYear();
+  
+  const categorySpending = expenses
+    .filter(e => {
+        const d = new Date(e.date + 'T12:00:00');
+        return e.category === selectedCategory && 
+               d.getMonth() === currentMonthIdx && 
+               d.getFullYear() === currentYear &&
+               e.id !== editingId;
+    })
+    .reduce((sum, e) => sum + parseLocaleNumber(e.amount, language), 0);
+  
+  const budgetProgress = budgetLimit > 0 ? (categorySpending / budgetLimit) * 100 : 0;
+  const remainingBudget = Math.max(0, budgetLimit - categorySpending);
 
   // Auto-calculate volume when amount or price changes
   React.useEffect(() => {
@@ -326,6 +345,7 @@ export function AddExpenseScreen({
       return;
     }
 
+    setSuccessMessage(t('expenseRegisteredSuccess'));
     if (selectedCategory === 'fuel' && (!odometer || odometer === '0' || odometer === '')) {
       setErrorAlert(t('odometerRequired'));
       return;
@@ -362,7 +382,6 @@ export function AddExpenseScreen({
       gnvPrice: selectedCategory === 'fuel' && fuelType === 'gnv' ? gnvPrice : undefined,
       odometer: selectedCategory === 'fuel' && odometer && odometer !== '0' ? odometer : undefined,
       isFullTank: selectedCategory === 'fuel' ? isFullTank : undefined,
-      fuelLevel: selectedCategory === 'fuel' ? fuelLevel : undefined,
       subCategory: subCategory || undefined,
       attachmentUrl,
       status: 'paid'
@@ -382,7 +401,6 @@ export function AddExpenseScreen({
     setGnvPrice('0,00');
     setOdometer('');
     setIsFullTank(false);
-    setFuelLevel(0);
     setEditingId(null);
     setAttachmentUrl(undefined);
   };
@@ -416,7 +434,6 @@ export function AddExpenseScreen({
       if (expense.gnvPrice) setGnvPrice(expense.gnvPrice);
       if (expense.odometer) setOdometer(expense.odometer.toString());
       if (expense.isFullTank !== undefined) setIsFullTank(expense.isFullTank);
-      if ((expense as any).fuelLevel !== undefined) setFuelLevel((expense as any).fuelLevel);
       setAttachmentUrl(expense.attachmentUrl);
     }
   };
@@ -528,9 +545,9 @@ export function AddExpenseScreen({
 
       {showSuccess && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="bg-error text-on-error px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/20">
+          <div className="bg-error text-on-error px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/20 text-center">
             <CheckCircle size={24} />
-            <p className="font-black">{t('expenseRegisteredSuccess')}</p>
+            <p className="font-black">{successMessage}</p>
           </div>
         </div>
       )}
@@ -554,95 +571,156 @@ export function AddExpenseScreen({
           {/* Amount Section */}
           <section className="bg-surface-container-lowest rounded-xl p-6 shadow-sm">
             <label className="block text-xs font-bold text-on-surface-variant mb-3 uppercase tracking-wider">{t('expenseAmount')}</label>
-            <div className={`flex items-baseline gap-2 border-b-2 transition-colors pb-1 ${activeField === 'amount' ? 'border-error' : 'border-outline-variant/30'}`}>
-              <span className="text-2xl font-bold text-error">{t('currencySymbol')}</span>
-              <input 
-                className="w-full bg-transparent border-none text-4xl font-black text-on-surface focus:ring-0 p-0 placeholder:text-surface-container-highest" 
-                placeholder={t('currencyPlaceholder')} 
-                type="text" 
-                inputMode="numeric"
-                value={amount}
-                onFocus={(e) => {
-                  setActiveField('amount');
-                  e.target.select();
-                  e.target.placeholder = '';
-                }}
-                onBlur={(e) => {
-                  if (amount === '0,00') e.target.placeholder = t('currencyPlaceholder');
-                }}
-                onClick={(e) => {
-                  const target = e.target as HTMLInputElement;
-                  target.setSelectionRange(target.value.length, target.value.length);
-                }}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '');
-                  const formatted = formatCurrency(val);
-                  setAmount(formatted);
-                  if (selectedCategory === 'fuel') {
-                    calculatePriceFromAmount(formatted, fuelType === 'gnv' ? gnvVolume : liters);
-                  }
-                }}
-              />
-              {isRecording ? (
-                <div className="flex-1 flex flex-col items-center gap-3 bg-secondary/5 rounded-3xl p-4 border border-secondary/20 shadow-inner animate-in fade-in zoom-in duration-300">
-                  <div className="w-full flex items-center gap-4">
-                    <button 
-                      onClick={cancelRecording}
-                      className="p-3 bg-error/10 text-error rounded-full hover:bg-error/20 transition-all active:scale-90 shadow-sm"
-                      title={t('cancel')}
-                    >
-                      <Trash2 size={24} />
-                    </button>
-                    
-                    <div className="flex-1 overflow-hidden">
-                      <VoiceVisualizer isRecording={isRecording} />
+              <div className={`flex items-baseline gap-2 border-b-2 transition-colors pb-1 ${activeField === 'amount' ? 'border-error' : 'border-outline-variant/30'}`}>
+                <span className="text-2xl font-bold text-error">{t('currencySymbol')}</span>
+                <input 
+                  className="w-full bg-transparent border-none text-4xl font-black text-on-surface focus:ring-0 p-0 placeholder:text-surface-container-highest" 
+                  placeholder={t('currencyPlaceholder')} 
+                  type="text" 
+                  inputMode="numeric"
+                  value={amount}
+                  onFocus={(e) => {
+                    setActiveField('amount');
+                    e.target.select();
+                    e.target.placeholder = '';
+                  }}
+                  onBlur={(e) => {
+                    if (amount === '0,00') e.target.placeholder = t('currencyPlaceholder');
+                  }}
+                  onClick={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    target.setSelectionRange(target.value.length, target.value.length);
+                  }}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    const formatted = formatCurrency(val);
+                    setAmount(formatted);
+                    if (selectedCategory === 'fuel') {
+                      calculatePriceFromAmount(formatted, fuelType === 'gnv' ? gnvVolume : liters);
+                    }
+                  }}
+                />
+                {isRecording ? (
+                  <div className="flex-1 flex flex-col items-center gap-3 bg-secondary/5 rounded-3xl p-4 border border-secondary/20 shadow-inner animate-in fade-in zoom-in duration-300">
+                    <div className="w-full flex items-center gap-4">
+                      <button 
+                        onClick={cancelRecording}
+                        className="p-3 bg-error/10 text-error rounded-full hover:bg-error/20 transition-all active:scale-90 shadow-sm"
+                        title={t('cancel')}
+                      >
+                        <Trash2 size={24} />
+                      </button>
+                      
+                      <div className="flex-1 overflow-hidden">
+                        <VoiceVisualizer isRecording={isRecording} />
+                      </div>
+                      
+                      <button 
+                        onClick={stopAndConfirm}
+                        className="p-3 bg-secondary text-on-secondary rounded-full hover:shadow-lg hover:shadow-secondary/30 transition-all active:scale-90 shadow-md ring-4 ring-secondary/20"
+                        title={t('confirm')}
+                      >
+                        <Check size={28} className="font-black" />
+                      </button>
                     </div>
                     
-                    <button 
-                      onClick={stopAndConfirm}
-                      className="p-3 bg-secondary text-on-secondary rounded-full hover:shadow-lg hover:shadow-secondary/30 transition-all active:scale-90 shadow-md ring-4 ring-secondary/20"
-                      title={t('confirm')}
-                    >
-                      <Check size={28} className="font-black" />
-                    </button>
+                    <div className="w-full min-h-[40px] px-2 text-center">
+                      <p className="text-xs text-secondary/70 italic leading-relaxed line-clamp-2">
+                        {lastTranscript}
+                        <span className="text-secondary opacity-50">{interimTranscript}</span>
+                      </p>
+                    </div>
                   </div>
-                  
-                  <div className="w-full min-h-[40px] px-2 text-center">
-                    <p className="text-xs text-secondary/70 italic leading-relaxed line-clamp-2">
-                      {lastTranscript}
-                      <span className="text-secondary opacity-50">{interimTranscript}</span>
-                    </p>
+                ) : (
+                  <button 
+                    className={`p-3 rounded-full transition-all active:scale-95 flex items-center justify-center shrink-0 shadow-sm ${
+                      isProcessingVoice 
+                        ? 'bg-neutral-200 text-neutral-500' 
+                        : 'bg-error/10 text-error hover:bg-error/20'
+                    }`}
+                    disabled={isProcessingVoice}
+                    title={t('voiceCapture')}
+                    onClick={startVoiceCapture}
+                  >
+                    {isProcessingVoice ? <Loader2 size={28} className="animate-spin" /> : <Mic size={28} />}
+                  </button>
+                )}
+              </div>
+
+              {/* Budget Progress Area - Re-positioned and highlighted */}
+              <AnimatePresence mode="wait">
+                {budgetLimit > 0 && (
+                  <motion.div 
+                    key={`budget-${selectedCategory}`}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="mt-6 p-4 bg-primary/5 rounded-2xl border-2 border-primary/10 shadow-inner space-y-4 overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                          <Target size={18} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black uppercase tracking-[0.15em] text-on-surface-variant flex items-center gap-1 text-nowrap">
+                            {t('budget')} . {currentCategoryObj ? t(currentCategoryObj.name) : ''} . {(() => {
+                              const d = new Date(date + 'T12:00:00');
+                              const monthLong = d.toLocaleDateString(language, { month: 'long' });
+                              return monthLong.charAt(0).toUpperCase() + monthLong.slice(1);
+                            })()} de {new Date(date + 'T12:00:00').getFullYear()}
+                          </span>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-xl font-black ${budgetProgress >= 100 ? 'text-error' : 'text-primary'}`}>
+                        {budgetProgress.toFixed(0)}%
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <button 
-                  className={`p-3 rounded-full transition-all active:scale-95 flex items-center justify-center shrink-0 shadow-sm ${
-                    isProcessingVoice 
-                      ? 'bg-neutral-200 text-neutral-500' 
-                      : 'bg-error/10 text-error hover:bg-error/20'
-                  }`}
-                  disabled={isProcessingVoice}
-                  title={t('voiceCapture')}
-                  onClick={startVoiceCapture}
-                >
-                  {isProcessingVoice ? <Loader2 size={28} className="animate-spin" /> : <Mic size={28} />}
-                </button>
+
+                  <div className="space-y-2">
+                    <div className="h-2.5 w-full bg-surface-container-high rounded-full overflow-hidden border border-outline-variant/10">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(budgetProgress, 100)}%` }}
+                        className={`h-full rounded-full transition-all duration-1000 ${
+                          budgetProgress >= 100 ? 'bg-error' : budgetProgress >= 80 ? 'bg-amber-500' : 'bg-primary'
+                        }`}
+                      />
+                    </div>
+                    <div className="flex justify-between items-center px-1">
+                      <div className="flex gap-2 items-center">
+                        <span className="text-[8px] font-black text-on-surface-variant/40 uppercase tracking-widest">{t('spent')}:</span>
+                        <span className="text-sm font-black text-on-surface">{formatLocaleCurrency(categorySpending, language)}</span>
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <span className="text-[8px] font-black text-on-surface-variant/40 uppercase tracking-widest">{t('budgetRemaining')}:</span>
+                        <span className={`text-sm font-black ${budgetProgress >= 100 ? 'text-error' : 'text-primary'}`}>
+                          {formatLocaleCurrency(remainingBudget, language)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {isRecording && (
+                <p className="mt-2 text-[10px] font-black text-secondary animate-pulse uppercase tracking-[0.2em] text-center">{t('recording')}</p>
               )}
-            </div>
-            {isRecording && (
-              <p className="mt-2 text-[10px] font-black text-secondary animate-pulse uppercase tracking-[0.2em] text-center">{t('recording')}</p>
-            )}
-            {isProcessingVoice && (
-              <p className="mt-2 text-[10px] font-black text-neutral-400 animate-pulse uppercase tracking-widest">{t('processingVoice')}</p>
-            )}
-          </section>
+              {isProcessingVoice && (
+                <p className="mt-2 text-[10px] font-black text-neutral-400 animate-pulse uppercase tracking-widest">{t('processingVoice')}</p>
+              )}
+            </section>
+
 
           {/* Categories Section */}
           <section>
             <label className="block text-xs font-bold text-on-surface-variant mb-4 uppercase tracking-wider">{t('selectCategory')}</label>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {[...categories].sort((a, b) => {
-                const priorityOrder = ['maintenance', 'fuel', 'food', 'washing'];
+                const priorityOrder = ['maintenance', 'fuel', 'food', 'washing', 'accessories', 'ipva'];
                 const aIndex = priorityOrder.indexOf(a.id);
                 const bIndex = priorityOrder.indexOf(b.id);
                 
@@ -655,20 +733,32 @@ export function AddExpenseScreen({
               }).map((cat) => {
                 const Icon = iconMap[cat.icon] || Info;
                 const isSelected = selectedCategory === cat.id;
+
                 return (
                   <button
                     key={cat.id}
                     onClick={() => {
                       setSelectedCategory(cat.id);
-                      setSubCategory(''); // Reset subcategory when changing category
+                      
+                      // Set default subcategory to ensure one is always selected
+                      if (cat.id === 'fuel') {
+                        setFuelType(cat.subcategories?.[0] || FUEL_SUBCATEGORIES[0]);
+                        setSubCategory('');
+                      } else if (cat.id === 'food') {
+                        setSubCategory(cat.subcategories?.[0] || FOOD_SUBCATEGORIES[0]);
+                      } else if (cat.id === 'maintenance') {
+                        setSubCategory(cat.subcategories?.[0] || MAINTENANCE_SUBCATEGORIES[0]);
+                      } else if (cat.subcategories && cat.subcategories.length > 0) {
+                        setSubCategory(cat.subcategories[0]);
+                      } else {
+                        setSubCategory('');
+                      }
+
                       if (cat.costType === 'fixed') {
                         if (cat.defaultAmount !== undefined) {
                           setAmount(formatLocaleCurrency(cat.defaultAmount, language).replace(t('currencySymbol') + ' ', ''));
                         } else {
                           setAmount('0,00');
-                        }
-                        if (cat.initialDate) {
-                          setDate(cat.initialDate);
                         }
                       } else {
                         setAmount('0,00');
@@ -682,13 +772,6 @@ export function AddExpenseScreen({
                         : 'bg-surface-container-low border-transparent hover:bg-surface-container-high'
                     }`}
                   >
-                    <div className={`absolute top-0 right-0 px-1.5 py-0.5 rounded-bl-lg text-[7px] font-black uppercase tracking-tighter border-b border-l transition-colors ${
-                      cat.costType === 'fixed' 
-                        ? 'bg-primary/10 text-primary border-primary/20' 
-                        : 'bg-red-600/10 text-red-600 border-red-600/20'
-                    }`}>
-                      {cat.costType === 'fixed' ? t('fixed') : t('variable')}
-                    </div>
                     <Icon 
                       size={24} 
                       className={`mb-2 transition-colors ${
@@ -711,48 +794,6 @@ export function AddExpenseScreen({
                 );
               })}
             </div>
-
-            {/* Simple Budget Progress Visualization */}
-            {currentCategoryObj?.costType === 'variable' && budgetLimit > 0 && (
-              <div className="mt-8 p-6 bg-surface-container-low rounded-3xl border border-outline-variant/10 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-xl">
-                      <Target size={18} className="text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase text-on-surface-variant tracking-[0.1em]">{t('budgetStatus')}</p>
-                      <div className="text-base font-black text-on-surface">
-                        {formatLocaleCurrency(categorySpending, language)}
-                        <span className="text-xs font-medium text-on-surface-variant mx-1">/</span>
-                        <span className="text-primary">{formatLocaleCurrency(budgetLimit, language)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <span className={`text-sm font-black ${budgetProgress >= 100 ? 'text-error' : 'text-primary'}`}>
-                    {budgetProgress.toFixed(0)}%
-                  </span>
-                </div>
-
-                <div className="h-2.5 w-full bg-surface-container-high rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full transition-all duration-700 rounded-full ${
-                      budgetProgress >= 100 ? 'bg-error' : budgetProgress >= 80 ? 'bg-amber-500' : 'bg-primary'
-                    }`}
-                    style={{ width: `${Math.min(budgetProgress, 100)}%` }}
-                  />
-                </div>
-
-                <div className="mt-3 flex justify-end">
-                   <span className={`text-[10px] font-black uppercase tracking-tight ${budgetProgress >= 100 ? 'text-error' : 'text-on-surface-variant/70'}`}>
-                    {budgetProgress >= 100 
-                      ? `${t('budgetExceeded')} ${formatLocaleCurrency(categorySpending - budgetLimit, language)}`
-                      : `${t('budgetRemaining')}: ${formatLocaleCurrency(budgetLimit - categorySpending, language)}`
-                    }
-                  </span>
-                </div>
-              </div>
-            )}
 
             {/* Subcategories Section */}
             {(() => {
@@ -816,7 +857,7 @@ export function AddExpenseScreen({
               ? 'bg-surface-container-low border-error/30 opacity-100' 
               : 'bg-surface-container-low border-outline-variant/30 opacity-40 pointer-events-none grayscale'
           }`}>
-            <div className="absolute top-0 right-0 p-4 pointer-events-none opacity-10">
+            <div className={`absolute top-0 right-0 p-4 pointer-events-none opacity-10 ${selectedCategory === 'fuel' ? 'block' : 'hidden'}`}>
               <Fuel size={64} className={selectedCategory === 'fuel' ? "text-error" : "text-on-surface-variant"} />
             </div>
             <h3 className="font-bold mb-3 flex items-center gap-2 text-sm text-on-surface">
@@ -856,83 +897,6 @@ export function AddExpenseScreen({
                 </div>
               </div>
             </div>
-
-            {userProfile.vehicle?.tankCapacity && (
-              <div className="space-y-4 py-2 border-t border-outline-variant/20 mt-2 mb-4 animate-in fade-in slide-in-from-top-2 duration-500">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-bold uppercase text-on-surface flex items-center gap-2">
-                    <Fuel size={12} className="text-error" />
-                    {t('fuelLevelIndicator')} (E - F)
-                  </label>
-                  <span className="text-[10px] font-black text-error bg-error/10 px-2 py-0.5 rounded-full border border-error/10">
-                    {userProfile.vehicle.tankCapacity}L {t('max')}
-                  </span>
-                </div>
-                
-                <div className="relative pt-2 pb-7 px-2">
-                  <input 
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    value={fuelLevel}
-                    onChange={(e) => {
-                      const val = parseFloat(e.target.value);
-                      setFuelLevel(val);
-                      const capacity = typeof userProfile.vehicle?.tankCapacity === 'string' 
-                        ? parseFloat(userProfile.vehicle.tankCapacity) 
-                        : (userProfile.vehicle?.tankCapacity || 0);
-                      const calculatedLiters = (capacity * val).toFixed(1).replace('.', ',');
-                      setLiters(calculatedLiters);
-                      
-                      // Calculate amount
-                      const lp = parseLocaleNumber(fuelType === 'gnv' ? gnvPrice : pricePerLiter, language);
-                      const lts = capacity * val;
-                      if (!isNaN(lp) && lts > 0) {
-                        setAmount(formatLocaleCurrency(lp * lts, language));
-                      }
-                    }}
-                    className="w-full h-1.5 bg-surface-container-highest rounded-lg appearance-none cursor-pointer accent-error"
-                  />
-                  
-                  {/* Markers */}
-                  <div className="absolute left-0 right-0 bottom-0 flex justify-between px-2 text-[8px] font-bold text-on-surface-variant/60">
-                    <div className="flex flex-col items-center">
-                        <div className="w-0.5 h-1.5 bg-on-surface-variant/40 mb-1" />
-                        <span>E</span>
-                    </div>
-                    <div className="flex flex-col items-center">
-                        <div className="w-0.5 h-1 bg-on-surface-variant/20 mb-1" />
-                        <span>1/4</span>
-                    </div>
-                    <div className="flex flex-col items-center">
-                        <div className="w-0.5 h-1.5 bg-on-surface-variant/40 mb-1" />
-                        <span>1/2</span>
-                    </div>
-                    <div className="flex flex-col items-center">
-                        <div className="w-0.5 h-1 bg-on-surface-variant/20 mb-1" />
-                        <span>3/4</span>
-                    </div>
-                    <div className="flex flex-col items-center">
-                        <div className="w-0.5 h-1.5 bg-on-surface-variant/40 mb-1" />
-                        <span>F</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex justify-between items-center bg-error/5 p-2 rounded-xl border border-error/10 group hover:bg-error/10 transition-colors">
-                   <div className="flex items-center gap-2">
-                     <div className="w-1 h-4 bg-error rounded-full" />
-                     <span className="text-[10px] font-bold text-error uppercase">{t('estimatedLiters')}:</span>
-                   </div>
-                   <span className="text-sm font-black text-error">
-                     {((typeof userProfile.vehicle?.tankCapacity === 'string' 
-                        ? parseFloat(userProfile.vehicle.tankCapacity) 
-                        : (userProfile.vehicle?.tankCapacity || 0)) * fuelLevel).toFixed(1)} L
-                   </span>
-                </div>
-              </div>
-            )}
             
             {/* Liquid Fuel Details */}
             <div className={`grid grid-cols-2 gap-3 relative z-10 transition-all duration-300 ${
@@ -1060,10 +1024,12 @@ export function AddExpenseScreen({
               </div>
             </div>
 
-            <div className="mt-3 pt-3 border-t border-error/20">
-              <label className="text-[9px] font-bold uppercase tracking-widest opacity-70 mb-0.5 block text-on-surface">{t('fuelExpense')}</label>
-              <div className="text-xl font-black text-on-surface">{t('currencySymbol')} {amount}</div>
-            </div>
+            {selectedCategory === 'fuel' && (
+              <div className="mt-3 pt-3 border-t border-error/20">
+                <label className="text-[9px] font-bold uppercase tracking-widest opacity-70 mb-0.5 block text-on-surface">{t('fuelExpense')}</label>
+                <div className="text-xl font-black text-on-surface">{t('currencySymbol')} {amount}</div>
+              </div>
+            )}
 
             {/* Odometer and Full Tank Section */}
             <div className="mt-4 pt-4 border-t border-error/20 space-y-4">
@@ -1117,65 +1083,69 @@ export function AddExpenseScreen({
           </div>
 
           {/* Additional Fields */}
-          <div className="space-y-3 bg-surface-container-lowest p-4 rounded-xl shadow-sm">
+          <div className="space-y-6 bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/10">
             <div className="space-y-2">
-              <label className="block text-xs font-bold uppercase tracking-wider">{t('expenseDate')}</label>
+              <label className="block text-[10px] font-black uppercase text-on-surface-variant tracking-[0.2em]">
+                {t('expenseDate')}
+              </label>
               <DatePicker 
                 date={new Date(date + 'T12:00:00')}
                 setDate={(d) => d && setDate(d.toISOString().split('T')[0])}
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase text-on-surface">{t('observation')}</label>
-              <textarea 
-                className="w-full bg-surface-container-low border-none rounded-lg p-2 text-sm font-medium focus:ring-2 focus:ring-primary/40 resize-none" 
-                placeholder={t('expenseNotesPlaceholder')} 
-                rows={2}
-                value={notes}
-                onFocus={(e) => e.target.placeholder = ''}
-                onBlur={(e) => e.target.placeholder = t('expenseNotesPlaceholder')}
-                onChange={(e) => setNotes(e.target.value)}
-              ></textarea>
-            </div>
+            <div className="space-y-4 pt-2 border-t border-outline-variant/10">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-on-surface-variant tracking-wider">{t('observation')}</label>
+                <textarea 
+                  className="w-full bg-surface-container-low border-none rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-primary/40 resize-none placeholder:font-medium" 
+                  placeholder={t('expenseNotesPlaceholder')} 
+                  rows={2}
+                  value={notes}
+                  onFocus={(e) => e.target.placeholder = ''}
+                  onBlur={(e) => e.target.placeholder = t('expenseNotesPlaceholder')}
+                  onChange={(e) => setNotes(e.target.value)}
+                ></textarea>
+              </div>
 
-            {/* Attachment Section */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase text-on-surface">{t('attachment')}</label>
-              <div className="flex items-center gap-3">
-                {attachmentUrl ? (
-                  <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-outline-variant/30 group">
-                    <img src={attachmentUrl} alt="Attachment" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    <button 
-                      onClick={() => setAttachmentUrl(undefined)}
-                      className="absolute top-1 right-1 bg-error text-on-error p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X size={12} />
-                    </button>
+              {/* Attachment Section */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-on-surface-variant tracking-wider">{t('attachment')}</label>
+                <div className="flex items-center gap-4">
+                  {attachmentUrl ? (
+                    <div className="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-outline-variant/30 group shadow-sm">
+                      <img src={attachmentUrl} alt="Attachment" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <button 
+                        onClick={() => setAttachmentUrl(undefined)}
+                        className="absolute top-1 right-1 bg-error text-on-error p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="w-20 h-20 rounded-xl border-2 border-dashed border-outline-variant/30 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-surface-container-low hover:border-primary/40 transition-all text-on-surface-variant group shadow-sm">
+                      <Camera size={20} className="group-hover:text-primary transition-colors" />
+                      <span className="text-[9px] font-black uppercase tracking-tighter">{t('add')}</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => setAttachmentUrl(reader.result as string);
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                  <div className="flex-1">
+                    <p className="text-[10px] text-on-surface-variant font-bold leading-tight uppercase opacity-60">
+                      {attachmentUrl ? t('attachmentAdded') : t('addAttachmentDesc')}
+                    </p>
                   </div>
-                ) : (
-                  <label className="w-20 h-20 rounded-lg border-2 border-dashed border-outline-variant/30 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-surface-container-low transition-colors text-on-surface-variant">
-                    <Camera size={20} />
-                    <span className="text-[10px] font-bold uppercase">{t('add')}</span>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => setAttachmentUrl(reader.result as string);
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                  </label>
-                )}
-                <div className="flex-1">
-                  <p className="text-[10px] text-on-surface-variant font-medium leading-tight">
-                    {attachmentUrl ? t('attachmentAdded') : t('addAttachmentDesc')}
-                  </p>
                 </div>
               </div>
             </div>
@@ -1185,9 +1155,12 @@ export function AddExpenseScreen({
           <div className="pt-2">
             <button 
               onClick={handleConfirmExpense}
-              className="w-full h-14 rounded-xl font-black text-base flex items-center justify-center gap-3 shadow-lg active:scale-[0.97] transition-all hover:brightness-95 bg-error dark:bg-error/90 text-on-primary shadow-error/20"
+              className="w-full h-14 rounded-xl font-black text-lg flex items-center justify-center gap-3 shadow-lg active:scale-[0.97] transition-all hover:brightness-105 bg-error dark:bg-error/90 text-on-primary shadow-error/30"
             >
-              {editingId ? t('saveChanges') : t('confirmExpense')}
+              {editingId 
+                ? t('saveChanges') 
+                : t('confirmExpense')
+              }
             </button>
           </div>
 
@@ -1211,7 +1184,7 @@ export function AddExpenseScreen({
                 .map((item) => {
                 const category = categories.find(c => c.id === item.category);
                 const Icon = (category && iconMap[category.icon]) ? iconMap[category.icon] : FileText;
-                const subcategory = item.fuelType || item.maintenanceType;
+                const subcategory = item.subCategory || item.fuelType || item.maintenanceType;
                 
                 return (
                   <div key={item.id} className="bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/20 shadow-sm hover:border-error/30 transition-all group">

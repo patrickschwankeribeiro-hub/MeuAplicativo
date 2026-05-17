@@ -7,7 +7,8 @@ export const MAINTENANCE_SUBCATEGORIES = [
   'bodywork', 'powerSteering', 'mirrors', 
   'brakePad', 'radiator', 'suspension', 'brakeChange',
   'timingBelt', 'alternator', 'starterMotor', 'electronicInjection',
-  'oxygenSensor', 'catalyticConverter', 'airConditioning', 'electricalSystem', 'lighting'
+  'oxygenSensor', 'catalyticConverter', 'airConditioning', 'electricalSystem', 'lighting',
+  'revision', 'otherMaintenanceAdjustment'
 ];
 
 export const FOOD_SUBCATEGORIES = ['lunch', 'snack', 'dinner'];

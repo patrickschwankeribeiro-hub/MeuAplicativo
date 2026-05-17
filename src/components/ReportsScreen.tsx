@@ -41,7 +41,12 @@ import {
   Target,
   Lock,
   FileUp,
-  Sparkles
+  Sparkles,
+  Droplets,
+  Triangle,
+  Radar,
+  KeyRound,
+  Bike
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -69,8 +74,16 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { parseLocaleNumber, formatLocaleCurrency } from '../lib/currency';
 import { calculateFuelPerformance } from '../lib/fuel';
 
+const VehicleRentIcon = ({ size, className }: { size: number; className?: string }) => (
+  <div className={`flex items-center gap-0.5 ${className}`}>
+    <Car size={size * 0.9} />
+    <span className="opacity-30">|</span>
+    <Bike size={size} />
+  </div>
+);
+
 const iconMap: Record<string, any> = {
-  Fuel, Wrench, Utensils, Key, SquareParking, Truck, Gavel, Milestone, Wifi, IdCard, Ship, FileText, Car, Tag, Target
+  Fuel, Wrench, Utensils, Key, KeyRound, SquareParking, Truck, Gavel, Milestone, Wifi, IdCard, Ship, FileText, Car, Tag, Target, Droplets, Triangle, Radar, VehicleRent: VehicleRentIcon
 };
 
 interface ReportsScreenProps {
@@ -87,6 +100,7 @@ interface ReportsScreenProps {
   onStartDateChange: (date: string) => void;
   endDate: string;
   onEndDateChange: (date: string) => void;
+  activeVehicleId?: string | null;
 }
 
 export function ReportsScreen({ 
@@ -102,9 +116,14 @@ export function ReportsScreen({
   startDate,
   onStartDateChange,
   endDate,
-  onEndDateChange
+  onEndDateChange,
+  activeVehicleId
 }: ReportsScreenProps) {
   const { t, language } = useLanguage();
+
+  const activeVehicle = useMemo(() => {
+    return userProfile?.vehicles?.find((v: any) => v.id === activeVehicleId) || userProfile?.vehicles?.[0];
+  }, [userProfile?.vehicles, activeVehicleId]);
 
   const FUEL_TYPES = [
     { id: 'gasolineCommon', name: t('gasolineCommon'), color: '#4CAF50' },
@@ -159,6 +178,7 @@ export function ReportsScreen({
   const [historyFilter, setHistoryFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
+  const totalSlides = 3;
   const [isFuelExpanded, setIsFuelExpanded] = useState(true);
   const [fuelView, setFuelView] = useState<'full' | 'partial'>('full');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -658,6 +678,12 @@ export function ReportsScreen({
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [incomes, expenses, startDate, endDate]);
 
+  const totalKm = useMemo(() => {
+    return incomes
+      .filter(i => isWithinDateRange(i.date))
+      .reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
+  }, [incomes, isWithinDateRange]);
+
   // Process data for platforms based on date range
   const platformData = useMemo(() => {
     const pMap: Record<string, { value: number; trips: number }> = {};
@@ -722,7 +748,7 @@ export function ReportsScreen({
       return d >= start && d <= end;
     };
 
-    const cMap: Record<string, number> = {};
+    const cMap: Record<string, { total: number; subs: Record<string, number> }> = {};
     let totalExpenses = 0;
     
     // Calculate gross earnings for the period
@@ -732,23 +758,36 @@ export function ReportsScreen({
 
     expenses.filter(e => isWithinFilter(e.date)).forEach(expense => {
       if (!cMap[expense.category]) {
-        cMap[expense.category] = 0;
+        cMap[expense.category] = { total: 0, subs: {} };
       }
       const amount = parseLocaleNumber(expense.amount, language);
       const val = isNaN(amount) ? 0 : amount;
-      cMap[expense.category] += val;
+      cMap[expense.category].total += val;
       totalExpenses += val;
+
+      const subKey = expense.category === 'fuel' ? (expense.fuelType || t('other')) : expense.subCategory;
+      if (subKey) {
+        cMap[expense.category].subs[subKey] = (cMap[expense.category].subs[subKey] || 0) + val;
+      }
     });
 
     return Object.entries(cMap)
-      .map(([id, value]) => {
+      .map(([id, data]) => {
         const category = categories.find(c => c.id === id);
         return {
           id,
           name: category ? t(category.name) : t('other'),
-          value: value,
-          percentage: totalExpenses > 0 ? (value / totalExpenses) * 100 : 0,
-          grossPercentage: totalGrossEarnings > 0 ? (value / totalGrossEarnings) * 100 : 0,
+          value: data.total,
+          subs: Object.entries(data.subs).map(([subId, subVal]) => ({
+            id: subId,
+            name: t(subId),
+            value: subVal,
+            percentage: totalExpenses > 0 ? (subVal / totalExpenses) * 100 : 0,
+            grossPercentage: totalGrossEarnings > 0 ? (subVal / totalGrossEarnings) * 100 : 0,
+          })).sort((a, b) => b.value - a.value),
+          percentage: totalExpenses > 0 ? (data.total / totalExpenses) * 100 : 0,
+          grossPercentage: totalGrossEarnings > 0 ? (data.total / totalGrossEarnings) * 100 : 0,
+          costPerKm: totalKm > 0 ? data.total / totalKm : 0,
           icon: (category && iconMap[category.icon]) ? iconMap[category.icon] : FileText,
           color: 'error',
           costType: category?.costType || 'variable'
@@ -761,6 +800,43 @@ export function ReportsScreen({
         return b.value - a.value;
       });
   }, [expenses, startDate, endDate, categories]);
+  
+  const maintenanceStats = useMemo(() => {
+    const isWithinFilter = (dateStr: string) => {
+      const d = new Date(dateStr);
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      return d >= start && d <= end;
+    };
+
+    const filteredMaintenance = expenses.filter(e => e.category === 'maintenance' && isWithinFilter(e.date));
+    const totalKmIncomes = incomes.filter(i => isWithinFilter(i.date)).reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
+
+    const subMap: Record<string, number> = {};
+    let totalMaintenanceAmount = 0;
+
+    filteredMaintenance.forEach(exp => {
+      const amount = parseLocaleNumber(exp.amount, language);
+      const sub = exp.subCategory || t('other');
+      subMap[sub] = (subMap[sub] || 0) + amount;
+      totalMaintenanceAmount += amount;
+    });
+
+    const items = Object.entries(subMap).map(([sub, amount]) => ({
+      sub,
+      amount,
+      cpk: totalKmIncomes > 0 ? (amount / totalKmIncomes) : 0
+    })).sort((a, b) => b.amount - a.amount);
+
+    return {
+      items,
+      totalMaintenanceAmount,
+      totalKm: totalKmIncomes,
+      totalMaintenanceCpk: totalKmIncomes > 0 ? (totalMaintenanceAmount / totalKmIncomes) : 0
+    };
+  }, [expenses, incomes, startDate, endDate, language, t]);
 
   const { bestPerformance, worstPerformance } = useMemo(() => {
     const currentViewIds = fuelView === 'full' ? allValidFuelIds.fullIds : allValidFuelIds.partialIds;
@@ -843,8 +919,8 @@ export function ReportsScreen({
     doc.text(`${t('from')}: ${startDate} ${t('to')}: ${endDate}`, 14, 22);
 
     // Add Vehicle Information if available
-    if (userProfile?.vehicle) {
-      const v = userProfile.vehicle;
+    if (activeVehicle) {
+      const v = activeVehicle;
       doc.setFontSize(10);
       doc.setTextColor(100);
       let vInfo = `${t('vehicle')}: ${v.brand || ''} ${v.model || ''}`;
@@ -978,10 +1054,10 @@ export function ReportsScreen({
       { [t('item')]: '---', [t('amount')]: '---' }
     ];
 
-    if (userProfile?.vehicle) {
-      summaryData.push({ [t('item')]: t('vehicle'), [t('amount')]: `${userProfile.vehicle.brand || ''} ${userProfile.vehicle.model || ''}` });
-      summaryData.push({ [t('item')]: t('licensePlate'), [t('amount')]: userProfile.vehicle.plate || '' });
-      summaryData.push({ [t('item')]: t('tankCapacity'), [t('amount')]: userProfile.vehicle.tankCapacity ? `${userProfile.vehicle.tankCapacity}L` : '' });
+    if (activeVehicle) {
+      summaryData.push({ [t('item')]: t('vehicle'), [t('amount')]: `${activeVehicle?.brand || ''} ${activeVehicle?.model || ''}` });
+      summaryData.push({ [t('item')]: t('licensePlate'), [t('amount')]: activeVehicle?.plate || '' });
+      summaryData.push({ [t('item')]: t('tankCapacity'), [t('amount')]: activeVehicle?.tankCapacity ? `${activeVehicle.tankCapacity}L` : '' });
       summaryData.push({ [t('item')]: '---', [t('amount')]: '---' });
     }
 
@@ -1006,12 +1082,29 @@ export function ReportsScreen({
     XLSX.utils.book_append_sheet(workbook, platformSheet, "Plataformas");
 
     // 3. Categories
-    const cData = categoryData.map(c => ({
-      [t('item')]: c.name,
-      [t('amount')]: c.value,
-      [t('percentageExpenseVsTotal')]: `${c.percentage.toFixed(1)}%`,
-      [t('percentageExpenseVsEarnings')]: `${c.grossPercentage.toFixed(1)}%`
-    }));
+    const cData: any[] = [];
+    categoryData.forEach(c => {
+      cData.push({
+        [t('item')]: c.name,
+        [t('amount')]: c.value,
+        [t('costPerKm')]: c.costPerKm.toFixed(3),
+        [t('percentageExpenseVsTotal')]: `${c.percentage.toFixed(1)}%`,
+        [t('percentageExpenseVsEarnings')]: `${c.grossPercentage.toFixed(1)}%`
+      });
+      
+      // Add subcategories
+      if (c.subs && c.subs.length > 0) {
+        c.subs.forEach((s: any) => {
+          cData.push({
+            [t('item')]: `  ↳ ${s.name}`,
+            [t('amount')]: s.value,
+            [t('costPerKm')]: '', // CPK for subcategory not calculated in categoryData
+            [t('percentageExpenseVsTotal')]: `${s.percentage.toFixed(1)}%`,
+            [t('percentageExpenseVsEarnings')]: `${s.grossPercentage.toFixed(1)}%`
+          });
+        });
+      }
+    });
     const categorySheet = XLSX.utils.json_to_sheet(cData);
     XLSX.utils.book_append_sheet(workbook, categorySheet, "Categorias");
 
@@ -1078,11 +1171,11 @@ export function ReportsScreen({
       }),
       { Section: '', Date: '', Item: '', Amount: '', Notes: '' },
       { Section: '--- VEÍCULO ---', Date: '', Item: '', Amount: '', Notes: '' },
-      ...(userProfile?.vehicle ? [
-        { Section: 'Veiculo', Date: '', Item: 'Marca', Amount: userProfile.vehicle.brand || '', Notes: '' },
-        { Section: 'Veiculo', Date: '', Item: 'Modelo', Amount: userProfile.vehicle.model || '', Notes: '' },
-        { Section: 'Veiculo', Date: '', Item: 'Placa', Amount: userProfile.vehicle.plate || '', Notes: '' },
-        { Section: 'Veiculo', Date: '', Item: 'Tanque', Amount: userProfile.vehicle.tankCapacity || '', Notes: '' }
+      ...(activeVehicle ? [
+        { Section: 'Veiculo', Date: '', Item: 'Marca', Amount: activeVehicle?.brand || '', Notes: '' },
+        { Section: 'Veiculo', Date: '', Item: 'Modelo', Amount: activeVehicle?.model || '', Notes: '' },
+        { Section: 'Veiculo', Date: '', Item: 'Placa', Amount: activeVehicle?.plate || '', Notes: '' },
+        { Section: 'Veiculo', Date: '', Item: 'Tanque', Amount: activeVehicle?.tankCapacity || '', Notes: '' }
       ] : []),
       { Section: '', Date: '', Item: '', Amount: '', Notes: '' },
       { Section: '--- HISTORICO ---', Date: '', Item: '', Amount: '', Notes: '' },
@@ -1703,9 +1796,6 @@ export function ReportsScreen({
                           <Info size={24} />
                         </div>
                         <div className="space-y-1">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-secondary mb-1">
-                            {hasValidHistoryOutsideRange ? '' : (expenses.some(e => e.category === 'fuel') ? '' : t('noHistory'))}
-                          </p>
                           <p className="text-xs font-bold text-on-surface-variant max-w-md leading-relaxed mx-auto">
                             {hasValidHistoryOutsideRange 
                               ? t('butHaveHistoryOutside')
@@ -1721,11 +1811,109 @@ export function ReportsScreen({
                 </div>
               </motion.section>
 
+      {/* Maintenance Report Section */}
+      <motion.section 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-6"
+      >
+        <div className="flex items-center gap-3 px-2">
+          <div className="p-2 bg-primary/10 rounded-xl text-primary">
+            <Wrench size={24} />
+          </div>
+          <h3 className="font-headline font-bold text-2xl">{t('maintenanceReport')}</h3>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6">
+          {maintenanceStats.items.length > 0 ? (
+            <div className="w-full p-6 md:p-8 rounded-[2.5rem] bg-surface-container-lowest border border-surface-container-high shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 opacity-5">
+                <Wrench size={120} />
+              </div>
+
+              <div className="relative z-10 space-y-8">
+                {/* Maintenance Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-surface-container-low/50 p-6 rounded-3xl border border-outline-variant/10 shadow-sm">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-1">{t('totalMaintenance')}</p>
+                    <p className="text-3xl font-black font-headline text-on-surface">
+                      {t('currencySymbol')} {formatLocaleCurrency(maintenanceStats.totalMaintenanceAmount, language)}
+                    </p>
+                  </div>
+                  <div className="bg-primary p-6 rounded-3xl shadow-lg shadow-primary/20">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-on-primary/70 mb-1">{t('maintenanceCpkTotal')}</p>
+                    <p className="text-3xl font-black font-headline text-on-primary">
+                      {t('currencySymbol')} {formatLocaleCurrency(maintenanceStats.totalMaintenanceCpk, language)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Subcategories Breakdown */}
+                <div className="space-y-6">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant flex items-center gap-2">
+                    <Triangle size={12} className="text-primary" />
+                    {t('detailedStats')}
+                  </p>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-8">
+                    {maintenanceStats.items.map((item, idx) => (
+                      <div key={idx} className="space-y-3 p-4 rounded-3xl bg-surface-container-low/30 hover:bg-surface-container-low transition-colors border border-outline-variant/5">
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-1">
+                            <p className="text-xs font-black text-on-surface uppercase tracking-wider">{t(item.sub)}</p>
+                            <p className="text-2xl font-black font-headline text-primary">
+                              {t('currencySymbol')} {formatLocaleCurrency(item.amount, language)}
+                            </p>
+                          </div>
+                          <div className="text-right bg-primary/10 px-3 py-1.5 rounded-xl border border-primary/20">
+                            <p className="text-[8px] font-black text-primary uppercase tracking-widest leading-none mb-1">{t('subcategoryCpk')}</p>
+                            <p className="text-sm font-black text-primary">
+                              {t('currencySymbol')} {formatLocaleCurrency(item.cpk, language)}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* Progress Bar */}
+                        <div className="space-y-1.5">
+                          <div className="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
+                            <motion.div 
+                              initial={{ width: 0 }}
+                              animate={{ width: `${(item.amount / maintenanceStats.totalMaintenanceAmount) * 100}%` }}
+                              className="h-full bg-primary"
+                              transition={{ duration: 1, ease: "easeOut" }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[8px] font-black text-neutral-400 uppercase tracking-widest">
+                            <span>{Math.round((item.amount / maintenanceStats.totalMaintenanceAmount) * 100)}% {t('percentageExpenseVsTotal')}</span>
+                            <span>{maintenanceStats.totalKm} KM {t('covered')}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-surface-container-low border-2 border-dashed border-outline-variant/30 rounded-[2.5rem] p-10 text-center space-y-4">
+              <div className="inline-flex p-4 bg-surface-container-high rounded-full text-neutral-400">
+                <Wrench size={32} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-neutral-500 font-black uppercase text-[10px] tracking-widest leading-relaxed">
+                  {expenses.some(e => e.category === 'maintenance') ? t('butHaveHistoryOutside') : t('noHistory')}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </motion.section>
+
       <div className="relative group px-4 sm:px-12">
         {/* Carousel Navigation Arrows */}
         <div className="absolute top-1/2 -translate-y-1/2 left-0 z-40">
           <button 
-            onClick={() => setActiveSlide(prev => (prev - 1 + 3) % 3)}
+            onClick={() => setActiveSlide(prev => (prev - 1 + totalSlides) % totalSlides)}
             className="p-2 rounded-full bg-surface-container-highest shadow-lg transition-all opacity-100 hover:scale-110 active:scale-95"
           >
             <ChevronLeft size={24} className="text-primary" />
@@ -1733,7 +1921,7 @@ export function ReportsScreen({
         </div>
         <div className="absolute top-1/2 -translate-y-1/2 right-0 z-40">
           <button 
-            onClick={() => setActiveSlide(prev => (prev + 1) % 3)}
+            onClick={() => setActiveSlide(prev => (prev + 1) % totalSlides)}
             className="p-2 rounded-full bg-surface-container-highest shadow-lg transition-all opacity-100 hover:scale-110 active:scale-95"
           >
             <ChevronRight size={24} className="text-primary" />
@@ -1747,10 +1935,10 @@ export function ReportsScreen({
             <motion.section 
               initial={false}
               animate={{ 
-                x: `${((0 - activeSlide + 1 + 3) % 3 - 1) * 85}%`,
+                x: `${((0 - activeSlide + 1 + totalSlides) % totalSlides - 1) * 85}%`,
                 scale: activeSlide === 0 ? 1 : 0.8,
                 opacity: activeSlide === 0 ? 1 : 0.4,
-                rotateY: activeSlide === 0 ? 0 : (((0 - activeSlide + 1 + 3) % 3 - 1) > 0 ? 15 : -15),
+                rotateY: activeSlide === 0 ? 0 : (((0 - activeSlide + 1 + totalSlides) % totalSlides - 1) > 0 ? 15 : -15),
                 z: activeSlide === 0 ? 0 : -100,
                 zIndex: activeSlide === 0 ? 30 : 10,
               }}
@@ -1817,10 +2005,10 @@ export function ReportsScreen({
             <motion.section 
               initial={false}
               animate={{ 
-                x: `${((1 - activeSlide + 1 + 3) % 3 - 1) * 85}%`,
+                x: `${((1 - activeSlide + 1 + totalSlides) % totalSlides - 1) * 85}%`,
                 scale: activeSlide === 1 ? 1 : 0.8,
                 opacity: activeSlide === 1 ? 1 : 0.4,
-                rotateY: activeSlide === 1 ? 0 : (((1 - activeSlide + 1 + 3) % 3 - 1) > 0 ? 15 : -15),
+                rotateY: activeSlide === 1 ? 0 : (((1 - activeSlide + 1 + totalSlides) % totalSlides - 1) > 0 ? 15 : -15),
                 z: activeSlide === 1 ? 0 : -100,
                 zIndex: activeSlide === 1 ? 30 : 10,
               }}
@@ -1843,29 +2031,29 @@ export function ReportsScreen({
                       {/* Axis Marker */}
                       <div className="absolute -left-[25px] top-1/2 -translate-y-1/2 w-2 h-2 bg-error rounded-full border-2 border-surface-container-lowest shadow-sm"></div>
                       
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         <div className="flex justify-between items-end">
                           <div className="flex items-center gap-2">
-                            <c.icon size={16} className="text-error" />
-                            <p className="font-black text-sm text-on-surface uppercase tracking-wider">{c.name}</p>
+                            <c.icon size={14} className="text-error" />
+                            <p className="font-black text-xs text-on-surface uppercase tracking-wider">{c.name}</p>
                           </div>
-                          <div className="text-right flex flex-col gap-2">
-                            <p className="font-black text-lg text-error leading-none">{t('currencySymbol')} {formatLocaleCurrency(c.value, language)}</p>
-                            <div className="flex items-center gap-2 flex-wrap justify-end">
-                              <div className="px-2 py-1 bg-error/10 border border-error/20 rounded-md">
-                                <p className="font-black text-xs text-error uppercase tracking-tighter whitespace-nowrap">
+                          <div className="text-right flex flex-col items-end">
+                            <p className="font-black text-base text-error leading-none mb-0.5">{t('currencySymbol')} {formatLocaleCurrency(c.value, language)}</p>
+                            <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                              <div className="px-1.5 py-0.5 bg-error/10 border border-error/20 rounded-md">
+                                <p className="font-black text-[10px] text-error uppercase tracking-tighter whitespace-nowrap">
                                   {c.percentage.toFixed(1)}% <span className="font-bold opacity-70">{t('percentageExpenseVsTotal')}</span>
                                 </p>
                               </div>
-                              <div className="px-2 py-1 bg-secondary/10 border border-secondary/20 rounded-md">
-                                <p className="font-black text-xs text-secondary uppercase tracking-tighter whitespace-nowrap">
+                              <div className="px-1.5 py-0.5 bg-secondary/10 border border-secondary/20 rounded-md">
+                                <p className="font-black text-[10px] text-secondary uppercase tracking-tighter whitespace-nowrap">
                                   {c.grossPercentage.toFixed(1)}% <span className="font-bold opacity-70">{t('percentageExpenseVsEarnings')}</span>
                                 </p>
                               </div>
                             </div>
                           </div>
                         </div>
-                        <div className="h-5 overflow-hidden">
+                        <div className="h-2.5 overflow-hidden">
                           <motion.div 
                             initial={{ width: 0 }}
                             animate={{ width: `${(c.value / (categoryData[0]?.value || 1)) * 100}%` }}
@@ -1883,14 +2071,14 @@ export function ReportsScreen({
               </div>
             </motion.section>
 
-            {/* Recent History */}
+            {/* Recent History (Index updated to 2) */}
             <motion.section 
               initial={false}
               animate={{ 
-                x: `${((2 - activeSlide + 1 + 3) % 3 - 1) * 85}%`,
+                x: `${((2 - activeSlide + 1 + totalSlides) % totalSlides - 1) * 85}%`,
                 scale: activeSlide === 2 ? 1 : 0.8,
                 opacity: activeSlide === 2 ? 1 : 0.4,
-                rotateY: activeSlide === 2 ? 0 : (((2 - activeSlide + 1 + 3) % 3 - 1) > 0 ? 15 : -15),
+                rotateY: activeSlide === 2 ? 0 : (((2 - activeSlide + 1 + totalSlides) % totalSlides - 1) > 0 ? 15 : -15),
                 z: activeSlide === 2 ? 0 : -100,
                 zIndex: activeSlide === 2 ? 30 : 10,
               }}
@@ -1954,7 +2142,11 @@ export function ReportsScreen({
                               <Edit2 size={16} />
                             </button>
                             <button 
-                              onClick={() => onDeleteIncome(item.id)}
+                              onClick={() => {
+                                if (window.confirm(t('confirmDelete') || 'Tem certeza que deseja excluir?')) {
+                                  onDeleteIncome(item.id);
+                                }
+                              }}
                               className="p-1.5 text-error hover:bg-error/10 rounded-lg transition-colors"
                               title={t('delete')}
                             >
@@ -1987,7 +2179,7 @@ export function ReportsScreen({
                   } else {
                     const category = [...CATEGORIES, ...categories].find(c => c.id === item.category);
                     const Icon = (category && iconMap[category.icon]) ? iconMap[category.icon] : FileText;
-                    const subcategory = item.fuelType || item.maintenanceType;
+                    const subcategory = item.subCategory || item.fuelType || item.maintenanceType;
                     
                     return (
                       <div key={`expense-${item.id}`} className="bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/20 shadow-sm hover:border-error/30 transition-all group">
@@ -2012,7 +2204,11 @@ export function ReportsScreen({
                               <Edit2 size={16} />
                             </button>
                             <button 
-                              onClick={() => onDeleteExpense(item.id)}
+                              onClick={() => {
+                                if (window.confirm(t('confirmDelete') || 'Tem certeza que deseja excluir?')) {
+                                  onDeleteExpense(item.id);
+                                }
+                              }}
                               className="p-1.5 text-error hover:bg-error/10 rounded-lg transition-colors"
                               title={t('delete')}
                             >

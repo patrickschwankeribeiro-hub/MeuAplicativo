@@ -356,13 +356,6 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
                     }}
                     className={`flex flex-col items-center justify-center p-3 border-2 rounded-xl transition-all group relative overflow-hidden ${styles.container}`}
                   >
-                    <div className={`absolute top-0 right-0 px-1.5 py-0.5 rounded-bl-lg text-[7px] font-black uppercase tracking-tighter border-b border-l transition-colors ${
-                      platform.type === 'fixed' 
-                        ? 'bg-primary/10 text-primary border-primary/20' 
-                        : 'bg-red-600/10 text-red-600 border-red-600/20'
-                    }`}>
-                      {platform.type === 'fixed' ? t('fixed') : t('variable')}
-                    </div>
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-colors ${styles.iconBg}`}>
                       {platform.isDefault ? (
                         (platform.id === 'uberblack' || platform.id === 'uberx' || platform.id === 'ubercomfort' || platform.id === 'uberbag') ? <span className="font-black text-xs italic">U</span> :

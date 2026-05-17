@@ -12,9 +12,13 @@ import {
   Repeat,
   RefreshCw,
   ArrowUp,
-  Bell
+  Bell,
+  Car,
+  ChevronDown,
+  Share2,
+  HelpCircle
 } from 'lucide-react';
-import { Screen } from '../types';
+import { Screen, UserProfile, Vehicle } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -24,18 +28,52 @@ interface SidebarProps {
   onLogout: () => void;
   isOpen: boolean;
   onToggle: () => void;
+  userProfile?: UserProfile | null;
+  activeVehicleId?: string | null;
+  onActiveVehicleChange?: (id: string) => void;
 }
 
-export function Sidebar({ currentScreen, onNavigate, onLogout, isOpen, onToggle }: SidebarProps) {
-  const { t } = useLanguage();
+export function Sidebar({ 
+  currentScreen, 
+  onNavigate, 
+  onLogout, 
+  isOpen, 
+  onToggle,
+  userProfile,
+  activeVehicleId,
+  onActiveVehicleChange
+}: SidebarProps) {
+  const { t, language } = useLanguage();
   const menuItems = [
     { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard },
     { id: 'reports', label: t('reports'), icon: BarChart3 },
     { id: 'reminders', label: t('reminders'), icon: Bell },
     { id: 'add', label: t('add'), icon: PlusCircle },
     { id: 'calculator', label: t('calculator'), icon: Calculator },
+    { id: 'help', label: t('help'), icon: HelpCircle },
     { id: 'settings', label: t('settings'), icon: Settings },
   ];
+
+  const handleShare = async () => {
+    const shareData = {
+      title: 'KM Profit',
+      text: t('shareApp'),
+      url: window.location.origin
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(window.location.origin);
+        alert(language === 'pt-BR' ? 'Link copiado para a área de transferência!' : 'Link copied to clipboard!');
+      }
+    } catch (err) {
+      console.error('Error sharing:', err);
+    }
+  };
+
+  const activeVehicle = userProfile?.vehicles?.find(v => v.id === activeVehicleId);
 
   return (
     <>
@@ -62,7 +100,7 @@ export function Sidebar({ currentScreen, onNavigate, onLogout, isOpen, onToggle 
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         className="fixed left-0 top-0 h-full bg-background border-r border-surface-container-low flex flex-col py-8 z-50 overflow-hidden"
       >
-        <div className="px-8 mb-12 flex items-center justify-between">
+        <div className="px-8 mb-8 flex items-center justify-between">
           <h1 className="text-2xl font-black font-headline text-primary tracking-tighter whitespace-nowrap">KM profit</h1>
           <button 
             onClick={onToggle}
@@ -72,8 +110,36 @@ export function Sidebar({ currentScreen, onNavigate, onLogout, isOpen, onToggle 
             <Menu size={20} className="text-on-surface-variant group-hover:text-primary transition-colors" />
           </button>
         </div>
+
+        {/* Vehicle Switcher */}
+        {userProfile?.vehicles && userProfile.vehicles.length > 0 && (
+          <div className="px-6 mb-8">
+            <div className="bg-surface-container-lowest p-4 rounded-2xl border border-outline-variant/10 shadow-sm">
+              <div className="flex items-center justify-between px-1 mb-2">
+                <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest opacity-50">
+                  Veículo Ativo
+                </label>
+              </div>
+              <div className="relative group">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse z-10" />
+                <select
+                  value={activeVehicleId || ''}
+                  onChange={(e) => onActiveVehicleChange?.(e.target.value)}
+                  className="w-full bg-surface py-2 pl-7 pr-8 rounded-xl text-xs font-bold border border-outline-variant/5 outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer relative"
+                >
+                  {userProfile.vehicles.map(v => (
+                    <option key={v.id} value={v.id}>
+                      {v.brand} {v.model} ({v.plate})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none opacity-50" />
+              </div>
+            </div>
+          </div>
+        )}
         
-        <nav className="flex-1 space-y-2 px-4">
+        <nav className="flex-1 space-y-2 px-4 overflow-y-auto custom-scrollbar">
           {menuItems.map((item) => {
             const isActive = currentScreen === item.id || (item.id === 'add' && (currentScreen === 'add-income' || currentScreen === 'add-expense'));
             const Icon = item.icon;
@@ -98,7 +164,15 @@ export function Sidebar({ currentScreen, onNavigate, onLogout, isOpen, onToggle 
           })}
         </nav>
 
-        <div className="px-8 mt-auto">
+        <div className="px-8 mt-auto pt-4 space-y-2">
+          <button 
+            onClick={handleShare}
+            className="flex items-center gap-3 px-6 py-4 text-primary font-headline font-semibold hover:bg-primary/10 rounded-xl transition-all w-full text-left whitespace-nowrap"
+          >
+            <Share2 size={24} />
+            <span>{t('share')}</span>
+          </button>
+          
           <button 
             onClick={onLogout}
             className="flex items-center gap-3 px-6 py-4 text-error font-headline font-semibold hover:bg-error-container/10 rounded-xl transition-all w-full text-left whitespace-nowrap"
@@ -112,7 +186,23 @@ export function Sidebar({ currentScreen, onNavigate, onLogout, isOpen, onToggle 
   );
 }
 
-export function Layout({ children, currentScreen, onNavigate, onLogout }: { children: React.ReactNode, currentScreen: Screen, onNavigate: (screen: Screen) => void, onLogout: () => void }) {
+export function Layout({ 
+  children, 
+  currentScreen, 
+  onNavigate, 
+  onLogout,
+  userProfile,
+  activeVehicleId,
+  onActiveVehicleChange
+}: { 
+  children: React.ReactNode, 
+  currentScreen: Screen, 
+  onNavigate: (screen: Screen) => void, 
+  onLogout: () => void,
+  userProfile?: UserProfile | null,
+  activeVehicleId?: string | null,
+  onActiveVehicleChange?: (id: string) => void
+}) {
   const { language } = useLanguage();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -145,6 +235,9 @@ export function Layout({ children, currentScreen, onNavigate, onLogout }: { chil
         onLogout={onLogout} 
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+        userProfile={userProfile}
+        activeVehicleId={activeVehicleId}
+        onActiveVehicleChange={onActiveVehicleChange}
       />
       
       <main className={`flex-1 min-h-screen relative transition-all duration-300 ${isSidebarOpen ? 'lg:ml-72' : 'ml-0'}`}>
@@ -166,7 +259,7 @@ export function Layout({ children, currentScreen, onNavigate, onLogout }: { chil
 
         <AnimatePresence mode="wait">
           <motion.div
-            key={`${currentScreen}-${language}`}
+            key={`${currentScreen}-${language}-${activeVehicleId}`}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}

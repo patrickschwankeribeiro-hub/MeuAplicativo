@@ -76,7 +76,7 @@ service cloud.firestore {
         allow create: if isOwner(userId) && isValidId(incomeId) && isValidIncomeRecord(incoming());
         allow update: if isOwner(userId) && isValidId(incomeId) && isValidIncomeRecord(incoming()) && (
           incoming().diff(existing()).affectedKeys().hasOnly([
-            'date', 'notes', 'totalAmount', 'totalTrips', 'hoursWorked', 'kmDriven', 'type', 'frequency', 'status', 'isRecurring', 'parentId', 'items'
+            'date', 'notes', 'totalAmount', 'totalTrips', 'hoursWorked', 'kmDriven', 'type', 'status', 'items'
           ])
         );
         allow delete: if isOwner(userId) && isValidId(incomeId);
@@ -88,7 +88,7 @@ service cloud.firestore {
         allow create: if isOwner(userId) && isValidId(expenseId) && isValidExpenseRecord(incoming());
         allow update: if isOwner(userId) && isValidId(expenseId) && isValidExpenseRecord(incoming()) && (
           incoming().diff(existing()).affectedKeys().hasOnly([
-            'amount', 'category', 'date', 'notes', 'fuelType', 'maintenanceType', 'maintenanceGroup', 'subCategory', 'costType', 'liters', 'pricePerLiter', 'gnvVolume', 'gnvPrice', 'odometer', 'isFullTank', 'attachmentUrl', 'frequency', 'status', 'isRecurring', 'parentId'
+            'amount', 'category', 'date', 'notes', 'fuelType', 'maintenanceType', 'maintenanceGroup', 'subCategory', 'costType', 'liters', 'pricePerLiter', 'gnvVolume', 'gnvPrice', 'odometer', 'isFullTank', 'attachmentUrl', 'status'
           ])
         );
         allow delete: if isOwner(userId) && isValidId(expenseId);

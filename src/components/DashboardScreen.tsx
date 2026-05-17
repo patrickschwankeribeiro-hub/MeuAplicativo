@@ -41,7 +41,7 @@ import {
   Cell,
   LabelList
 } from 'recharts';
-import { IncomeRecord, ExpenseRecord, Screen, Goal, UserProfile } from '../types';
+import { IncomeRecord, ExpenseRecord, Screen, Goal, UserProfile, CATEGORIES } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { parseLocaleNumber, formatLocaleCurrency } from '../lib/currency';
 
@@ -53,8 +53,6 @@ interface DashboardScreenProps {
   userProfile: UserProfile;
   isPrivacyActive: boolean;
   onPrivacyToggle: () => void;
-  onConfirmIncome: (record: IncomeRecord) => void;
-  onConfirmExpense: (record: ExpenseRecord) => void;
   onDeleteExpense: (id: string | number) => void;
   onUpdateProfile: (profile: UserProfile) => void;
   filter: 'day' | 'week' | 'month' | 'year';
@@ -69,6 +67,7 @@ interface DashboardScreenProps {
   onSelectedWeekChange: (week: number) => void;
   onSaveGoal?: (goal: Goal) => void;
   periodLabel?: string;
+  activeVehicleId?: string | null;
 }
 
 export function DashboardScreen({ 
@@ -79,8 +78,6 @@ export function DashboardScreen({
   userProfile,
   isPrivacyActive,
   onPrivacyToggle,
-  onConfirmIncome,
-  onConfirmExpense,
   onDeleteExpense,
   onUpdateProfile,
   filter,
@@ -94,7 +91,8 @@ export function DashboardScreen({
   selectedWeek,
   onSelectedWeekChange,
   onSaveGoal,
-  periodLabel
+  periodLabel,
+  activeVehicleId
 }: DashboardScreenProps) {
   const { t, language } = useLanguage();
 
@@ -242,6 +240,22 @@ export function DashboardScreen({
   const { filteredIncomes, filteredExpenses } = getFilteredData(filter, selectedDate, selectedYear, selectedMonth, selectedWeek);
   const currentStats = calculateStatsFromData(filteredIncomes, filteredExpenses);
 
+  const fixedExpensesTotal = useMemo(() => {
+    return filteredExpenses.reduce((acc, curr) => {
+      const category = CATEGORIES.find(c => c.id === curr.category);
+      const isFixed = curr.costType === 'fixed' || category?.costType === 'fixed';
+      return isFixed ? acc + parseCurrency(curr.amount) : acc;
+    }, 0);
+  }, [filteredExpenses, language]);
+
+  const variableExpensesTotal = useMemo(() => {
+    return filteredExpenses.reduce((acc, curr) => {
+      const category = CATEGORIES.find(c => c.id === curr.category);
+      const isFixed = curr.costType === 'fixed' || category?.costType === 'fixed';
+      return isFixed ? acc : acc + parseCurrency(curr.amount);
+    }, 0);
+  }, [filteredExpenses, language]);
+
   const getPreviousPeriodData = () => {
     let pDate = selectedDate;
     let pYear = selectedYear;
@@ -369,8 +383,15 @@ export function DashboardScreen({
     { label: t('expensePerKm').replace(' /', ' Méd /'), value: formatLocaleCurrency(currentStats.expensePerKm, language), icon: TrendingDown, color: 'error', change: calculateChange(currentStats.expensePerKm, prevStats.expensePerKm) },
   ];
 
-  const reminders = userProfile?.reminders || [];
-  const currentOdo = userProfile?.vehicle?.currentOdometer || 0;
+  const reminders = useMemo(() => {
+    return (userProfile?.reminders || []).filter(r => r.vehicleId === activeVehicleId);
+  }, [userProfile?.reminders, activeVehicleId]);
+
+  const activeVehicle = useMemo(() => {
+    return userProfile.vehicles?.find(v => v.id === activeVehicleId) || userProfile.vehicles?.[0];
+  }, [userProfile.vehicles, activeVehicleId]);
+
+  const currentOdo = activeVehicle?.currentOdometer || 0;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -610,7 +631,10 @@ export function DashboardScreen({
               {/* Total Expenses */}
               <div className="text-center md:text-right order-3">
                 <p className="text-[10px] font-black text-error uppercase tracking-[0.2em] mb-1">{t('totalExpenses')}</p>
-                <p className="text-3xl md:text-4xl font-black font-headline text-error data-privacy-mask leading-none">{t('currencySymbol')} {formatLocaleCurrency(totalExpenses, language)}</p>
+
+                <p className="text-3xl md:text-4xl font-black font-headline text-error data-privacy-mask leading-none">
+                  {t('currencySymbol')} {formatLocaleCurrency(totalExpenses, language)}
+                </p>
                 {expenseChange !== null && (
                   <div className={`mt-2 flex items-center justify-center md:justify-end gap-1.5 text-xs font-black uppercase tracking-[0.1em] ${expenseChange >= 0 ? 'text-error' : 'text-secondary'}`}>
                     {expenseChange >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
@@ -696,108 +720,6 @@ export function DashboardScreen({
               </button>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Quick Actions / Shortcuts */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 px-1">
-        <button 
-          onClick={() => onNavigate('calculator')}
-          className="flex flex-col items-center justify-center p-4 bg-surface-container-lowest border border-surface-container-high rounded-2xl hover:bg-primary hover:text-on-primary transition-all group shadow-sm"
-        >
-          <Timer size={24} className="mb-2 text-primary group-hover:text-on-primary transition-colors" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-center">{t('calculator')}</span>
-        </button>
-        <button 
-          onClick={() => onNavigate('reminders')}
-          className="flex flex-col items-center justify-center p-4 bg-surface-container-lowest border border-surface-container-high rounded-2xl hover:bg-primary hover:text-on-primary transition-all group shadow-sm"
-        >
-          <Bell size={24} className="mb-2 text-primary group-hover:text-on-primary transition-colors" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-center">{t('reminders')}</span>
-        </button>
-        <button 
-          onClick={() => onNavigate('reports')}
-          className="flex flex-col items-center justify-center p-4 bg-surface-container-lowest border border-surface-container-high rounded-2xl hover:bg-primary hover:text-on-primary transition-all group shadow-sm"
-        >
-          <TrendingUp size={24} className="mb-2 text-primary group-hover:text-on-primary transition-colors" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-center">{t('reports')}</span>
-        </button>
-      </section>
-
-      {/* Gastos Fixos (Pending Auto-generated Expenses) */}
-      <section className="bg-surface-container-lowest p-6 rounded-3xl shadow-sm border border-surface-container-high space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-black font-headline text-on-surface flex items-center gap-2">
-            <Zap size={20} className="text-primary" />
-            {t('fixedExpenses')}
-          </h3>
-          <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container-high px-2 py-1 rounded-lg">
-            {expenses.filter(e => e.isAutoGenerated).length} {t('pendingNotifications')}
-          </span>
-        </div>
-        
-        <div className="space-y-3">
-          <AnimatePresence mode="popLayout">
-            {expenses.filter(e => e.isAutoGenerated).length > 0 ? (
-              expenses.filter(e => e.isAutoGenerated).map((expense) => (
-                <motion.div
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  key={expense.id}
-                  className="bg-surface-container-low p-4 rounded-2xl border border-primary/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-surface-container-high/50"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary shrink-0">
-                      <Zap size={20} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="text-sm font-black text-on-surface uppercase tracking-tight truncate">
-                        {expense.notes || t('fixedExpense')}
-                      </h4>
-                      <div className="flex items-center gap-2 text-[10px] font-bold text-on-surface-variant">
-                        <span>{new Date(expense.date + 'T12:00:00').toLocaleDateString(language)}</span>
-                        <span className="opacity-30">•</span>
-                        <span className="text-primary font-black">{t('fixed')}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto mt-2 sm:mt-0">
-                    <p className="text-lg font-black font-headline text-error data-privacy-mask">
-                      - {t('currencySymbol')} {expense.amount}
-                    </p>
-                    
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => onDeleteExpense(expense.id)}
-                        className="flex items-center gap-2 px-3 py-2 text-on-surface-variant hover:bg-error/10 hover:text-error rounded-lg transition-colors group/undo"
-                        title={t('undo')}
-                      >
-                        <RotateCcw size={18} className="group-hover/undo:rotate-[-90deg] transition-transform" />
-                        <span className="text-[10px] font-black uppercase tracking-widest">{t('undo')}</span>
-                      </button>
-                      <button
-                        onClick={() => onConfirmExpense({ ...expense, isAutoGenerated: false })}
-                        className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md hover:scale-105 active:scale-95 transition-all"
-                      >
-                        <CheckCircle2 size={16} />
-                        {t('confirm')}
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))
-            ) : (
-              <div className="py-10 flex flex-col items-center justify-center border-2 border-dashed border-surface-container-high rounded-3xl opacity-50">
-                <Zap size={32} className="text-surface-container-high mb-2" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
-                  {t('noPendingFixedExpenses')}
-                </p>
-              </div>
-            )}
-          </AnimatePresence>
         </div>
       </section>
 

@@ -14,13 +14,14 @@ import { ReportsScreen } from './components/ReportsScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { CalculatorScreen } from './components/CalculatorScreen';
 import { RemindersScreen } from './components/RemindersScreen';
+import { HelpScreen } from './components/HelpScreen';
 import { AdminScreen } from './components/AdminScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { SignupScreen } from './components/SignupScreen';
-import { Screen, IncomeRecord, ExpenseRecord, Goal, UserProfile, GoalHistory, Category, Platform, CATEGORIES, PLATFORMS, TransactionFrequency, TransactionStatus } from './types';
+import { Screen, IncomeRecord, ExpenseRecord, Goal, UserProfile, GoalHistory, Category, Platform, CATEGORIES, PLATFORMS, TransactionStatus } from './types';
 import { parseLocaleNumber } from './lib/currency';
 import { calculateFuelPerformance } from './lib/fuel';
-import { getLocalDateString, getNextDate } from './lib/utils';
+import { getLocalDateString } from './lib/utils';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 
@@ -28,7 +29,7 @@ function AppContent() {
   const { t } = useLanguage();
   // One-time data reset logic
   useState(() => {
-    const resetFlag = localStorage.getItem('dataReset_v30');
+    const resetFlag = localStorage.getItem('dataReset_v31');
     if (!resetFlag) {
       localStorage.removeItem('incomes');
       localStorage.removeItem('expenses');
@@ -38,7 +39,7 @@ function AppContent() {
       localStorage.removeItem('categories');
       localStorage.removeItem('platforms');
       localStorage.removeItem('isAuthenticated');
-      localStorage.setItem('dataReset_v30', 'true');
+      localStorage.setItem('dataReset_v31', 'true');
     }
   });
 
@@ -48,6 +49,7 @@ function AppContent() {
   });
   const [initialData, setInitialData] = useState<any>(null);
   const [isPrivacyActive, setIsPrivacyActive] = useState(false);
+
   const [isAdminMode] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('mode') === 'admin' || window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/');
@@ -176,7 +178,8 @@ function AppContent() {
               icon: defaultCat.icon,
               color: defaultCat.color,
               costType: defaultCat.costType,
-              subcategories: defaultCat.subcategories || cat.subcategories
+              subcategories: defaultCat.subcategories,
+              defaultAmount: defaultCat.defaultAmount // Force sync defaultAmount to clear stale 1000 value
             };
           }
         }
@@ -230,6 +233,25 @@ function AppContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('isAuthenticated') === 'true';
   });
+
+  const [activeVehicleId, setActiveVehicleId] = useState<string | null>(() => {
+    return localStorage.getItem('activeVehicleId');
+  });
+
+  // Ensure activeVehicleId is set if user has vehicles but none selected
+  useEffect(() => {
+    if (isAuthenticated && userProfile?.vehicles && userProfile.vehicles.length > 0) {
+      if (!activeVehicleId || !userProfile.vehicles.find(v => v.id === activeVehicleId)) {
+        setActiveVehicleId(userProfile.vehicles[0].id);
+      }
+    }
+  }, [isAuthenticated, userProfile?.vehicles, activeVehicleId]);
+
+  useEffect(() => {
+    if (activeVehicleId) {
+      localStorage.setItem('activeVehicleId', activeVehicleId);
+    }
+  }, [activeVehicleId]);
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -308,12 +330,19 @@ function AppContent() {
           city: '',
           state: '',
           password: '123456',
-          vehicle: {
-            plate: 'ABC-1234',
-            tankCapacity: '50',
-            currentOdometer: 10000,
-            type: 'car'
-          }
+          vehicles: [
+            {
+              id: 'veh_default',
+              brand: 'Toyota',
+              model: 'Corolla',
+              plate: 'ABC-1234',
+              year: '2022',
+              tankCapacity: '50',
+              currentOdometer: 10000,
+              type: 'car'
+            }
+          ],
+          drivers: []
         };
         setUserProfile(defaultProfile);
         setIsAuthenticated(true);
@@ -355,7 +384,8 @@ function AppContent() {
   const addIncome = (record: IncomeRecord | Omit<IncomeRecord, 'id'>) => {
     const newRecord = {
       ...record,
-      id: 'id' in record ? record.id : Date.now()
+      id: 'id' in record ? record.id : Date.now(),
+      vehicleId: record.vehicleId || activeVehicleId || undefined
     } as IncomeRecord;
 
     setIncomes(prev => {
@@ -372,7 +402,8 @@ function AppContent() {
   const addExpense = (record: ExpenseRecord | Omit<ExpenseRecord, 'id'>) => {
     const newRecord = {
       ...record,
-      id: 'id' in record ? record.id : Date.now()
+      id: 'id' in record ? record.id : Date.now(),
+      vehicleId: record.vehicleId || activeVehicleId || undefined
     } as ExpenseRecord;
 
     setExpenses(prev => {
@@ -386,16 +417,24 @@ function AppContent() {
     });
 
     // Update current odometer if the new record has a higher reading
-    if ('odometer' in record && record.odometer && userProfile?.vehicle) {
+    if ('odometer' in record && record.odometer && userProfile && activeVehicleId) {
       const newOdo = Number(record.odometer.replace(',', '.'));
-      if (!isNaN(newOdo) && newOdo > (userProfile.vehicle.currentOdometer || 0)) {
-        setUserProfile({
-          ...userProfile,
-          vehicle: {
-            ...userProfile.vehicle,
+      const activeVehicleIndex = userProfile.vehicles?.findIndex(v => v.id === activeVehicleId);
+      
+      if (activeVehicleIndex !== undefined && activeVehicleIndex !== -1) {
+        const activeVehicle = userProfile.vehicles![activeVehicleIndex];
+        if (!isNaN(newOdo) && newOdo > (activeVehicle.currentOdometer || 0)) {
+          const updatedVehicles = [...(userProfile.vehicles || [])];
+          updatedVehicles[activeVehicleIndex] = {
+            ...activeVehicle,
             currentOdometer: newOdo
-          }
-        });
+          };
+          
+          setUserProfile({
+            ...userProfile,
+            vehicles: updatedVehicles
+          });
+        }
       }
     }
   };
@@ -404,6 +443,7 @@ function AppContent() {
     // Clean empty goal template
     const noGoal: Goal = { 
       id: 'none', 
+      vehicleId: activeVehicleId || undefined,
       monthly: 0, 
       weekly: 0, 
       daily: 0, 
@@ -414,195 +454,87 @@ function AppContent() {
       month: dashboardSelectedMonth
     };
 
+    if (!activeVehicleId) return noGoal;
+
     if (dashboardFilter === 'year') {
-      const yearGoals = Object.values(goalHistory as Record<string, Goal>).filter(g => g && g.year === dashboardSelectedYear);
+      const yearGoals = Object.values(goalHistory as Record<string, Goal>).filter(g => 
+        g && g.year === dashboardSelectedYear && g.vehicleId === activeVehicleId
+      );
       
       if (yearGoals.length > 0) {
         const totalYearly = yearGoals.reduce((sum, g) => sum + (g.monthly || 0), 0);
         const baseGoal = yearGoals[yearGoals.length - 1] || goal;
         return {
           ...baseGoal,
-          id: `${dashboardSelectedYear}`,
+          id: `${activeVehicleId}_${dashboardSelectedYear}`,
+          vehicleId: activeVehicleId,
           year: dashboardSelectedYear,
           yearly: totalYearly,
         } as Goal;
       }
-      // If no history for the year, return a goal with all values as 0 to indicate no goal
       return noGoal;
     }
 
-    let searchKey = '';
+    let periodKey = '';
     if (dashboardFilter === 'month') {
-      searchKey = `${dashboardSelectedYear}-${String(dashboardSelectedMonth + 1).padStart(2, '0')}`;
+      periodKey = `${dashboardSelectedYear}-${String(dashboardSelectedMonth + 1).padStart(2, '0')}`;
     } else if (dashboardFilter === 'day') {
-      searchKey = dashboardSelectedDate;
+      periodKey = dashboardSelectedDate;
     } else if (dashboardFilter === 'week') {
       const monthFromWeek = getMonthFromWeek(dashboardSelectedYear, dashboardSelectedWeek);
-      searchKey = `${dashboardSelectedYear}-${String(monthFromWeek + 1).padStart(2, '0')}`;
+      periodKey = `${dashboardSelectedYear}-${String(monthFromWeek + 1).padStart(2, '0')}`;
     }
 
+    const searchKey = `${activeVehicleId}_${periodKey}`;
     if (goalHistory[searchKey]) {
       return goalHistory[searchKey];
     }
 
     // Fallback: If no specific goal for day or week, try to fetch the goal for the parent month
     if (dashboardFilter === 'day') {
-      const monthKey = dashboardSelectedDate.substring(0, 7); // Extracts "YYYY-MM"
-      if (goalHistory[monthKey]) return goalHistory[monthKey];
+      const monthKey = dashboardSelectedDate.substring(0, 7); 
+      const fallbackKey = `${activeVehicleId}_${monthKey}`;
+      if (goalHistory[fallbackKey]) return goalHistory[fallbackKey];
     } else if (dashboardFilter === 'week') {
       const monthFromWeek = getMonthFromWeek(dashboardSelectedYear, dashboardSelectedWeek);
       const monthKey = `${dashboardSelectedYear}-${String(monthFromWeek + 1).padStart(2, '0')}`;
-      if (goalHistory[monthKey]) return goalHistory[monthKey];
+      const fallbackKey = `${activeVehicleId}_${monthKey}`;
+      if (goalHistory[fallbackKey]) return goalHistory[fallbackKey];
     }
 
     return noGoal;
-  }, [goal, goalHistory, dashboardFilter, dashboardSelectedYear, dashboardSelectedMonth, dashboardSelectedDate, dashboardSelectedWeek]);
+  }, [activeVehicleId, goal, goalHistory, dashboardFilter, dashboardSelectedYear, dashboardSelectedMonth, dashboardSelectedDate, dashboardSelectedWeek]);
 
   const updateGoalForPeriod = (newGoal: Goal) => {
-    let key = newGoal.id;
+    if (!activeVehicleId) return;
+
+    let periodKey = newGoal.id;
     
     // If it's a legacy or automatic call without an ID, fallback to dashboard filter logic
-    if (!key || key === 'default') {
+    if (!periodKey || periodKey === 'default' || periodKey === 'none') {
       if (dashboardFilter === 'year') {
-        key = `${dashboardSelectedYear}`;
+        periodKey = `${dashboardSelectedYear}`;
       } else if (dashboardFilter === 'month') {
-        key = `${dashboardSelectedYear}-${String(dashboardSelectedMonth + 1).padStart(2, '0')}`;
+        periodKey = `${dashboardSelectedYear}-${String(dashboardSelectedMonth + 1).padStart(2, '0')}`;
       } else if (dashboardFilter === 'day') {
-        key = dashboardSelectedDate;
+        periodKey = dashboardSelectedDate;
       } else if (dashboardFilter === 'week') {
-        key = `${dashboardSelectedYear}-W${String(dashboardSelectedWeek).padStart(2, '0')}`;
+        periodKey = `${dashboardSelectedYear}-W${String(dashboardSelectedWeek).padStart(2, '0')}`;
       }
     }
+
+    // Ensure key is ALWAYS vehicleId_period
+    const finalKey = periodKey.includes(activeVehicleId) ? periodKey : `${activeVehicleId}_${periodKey}`;
 
     setGoalHistory(prev => ({
       ...prev,
-      [key]: { ...newGoal, id: key }
+      [finalKey]: { ...newGoal, id: finalKey, vehicleId: activeVehicleId }
     }));
     
     // Also update current/default to reflect newest setting
-    setGoal(newGoal);
-    localStorage.setItem('goal', JSON.stringify(newGoal));
+    setGoal({ ...newGoal, vehicleId: activeVehicleId });
+    localStorage.setItem('goal', JSON.stringify({ ...newGoal, vehicleId: activeVehicleId }));
   };
-
-  const syncRecurringTransactions = React.useCallback(() => {
-    const now = new Date();
-    const todayStr = getLocalDateString(now);
-
-    let totalNewExpenses: ExpenseRecord[] = [];
-    let categoriesChanged = false;
-    let platformsChanged = false;
-
-    // Process regular categories
-    const updatedCategories = categories.map(cat => {
-      if (cat.costType === 'fixed' && cat.defaultAmount && cat.initialDate && cat.frequency && cat.frequency !== 'none') {
-        let lastDate = cat.lastProcessedDate || cat.initialDate;
-        
-        if (!cat.lastProcessedDate && cat.initialDate > todayStr) {
-          return cat;
-        }
-
-        let currentDate = lastDate;
-        let dateAdvanced = false;
-        const catNewExpenses: ExpenseRecord[] = [];
-
-        while (currentDate <= todayStr) {
-          const alreadyExists = expenses.some(e => e.category === cat.id && e.date === currentDate) ||
-                              totalNewExpenses.some(e => e.category === cat.id && e.date === currentDate);
-          
-          if (!alreadyExists) {
-            const name = (cat.isDefault ? t(cat.id) : cat.name);
-            catNewExpenses.push({
-              id: Date.now() + Math.floor(Math.random() * 1000) + totalNewExpenses.length + catNewExpenses.length,
-              amount: cat.defaultAmount.toFixed(2).replace('.', ','),
-              category: cat.id,
-              date: currentDate,
-              notes: cat.defaultNotes || name,
-              status: 'paid',
-              costType: 'fixed',
-              isRecurring: true,
-              isAutoGenerated: true
-            });
-          }
-
-          const next = getNextDate(currentDate, cat.frequency);
-          if (next === currentDate) break;
-          currentDate = next;
-          dateAdvanced = true;
-        }
-
-        if (dateAdvanced || catNewExpenses.length > 0) {
-          totalNewExpenses = [...totalNewExpenses, ...catNewExpenses];
-          categoriesChanged = true;
-          return { ...cat, lastProcessedDate: currentDate };
-        }
-      }
-      return cat;
-    });
-
-    // Same for platforms (if they have fixed costs)
-    const updatedPlatforms = platforms.map(plat => {
-      if (plat.type === 'fixed' && plat.defaultAmount && plat.initialDate && plat.frequency && plat.frequency !== 'none') {
-        let lastDate = plat.lastProcessedDate || plat.initialDate;
-        
-        if (!plat.lastProcessedDate && plat.initialDate > todayStr) {
-          return plat;
-        }
-
-        let currentDate = lastDate;
-        let dateAdvanced = false;
-        const platNewExpenses: ExpenseRecord[] = [];
-
-        while (currentDate <= todayStr) {
-          const alreadyExists = expenses.some(e => e.platform === plat.id && e.date === currentDate) ||
-                              totalNewExpenses.some(e => e.platform === plat.id && e.date === currentDate);
-          
-          if (!alreadyExists) {
-            const name = (plat.isDefault ? t(plat.id) : plat.name);
-            platNewExpenses.push({
-              id: Date.now() + Math.floor(Math.random() * 2000) + totalNewExpenses.length + platNewExpenses.length,
-              amount: plat.defaultAmount.toFixed(2).replace('.', ','),
-              category: 'other',
-              platform: plat.id,
-              date: currentDate,
-              notes: plat.defaultNotes || name,
-              status: 'paid',
-              costType: 'fixed',
-              isRecurring: true,
-              isAutoGenerated: true
-            });
-          }
-
-          const next = getNextDate(currentDate, plat.frequency);
-          if (next === currentDate) break;
-          currentDate = next;
-          dateAdvanced = true;
-        }
-
-        if (dateAdvanced || platNewExpenses.length > 0) {
-          totalNewExpenses = [...totalNewExpenses, ...platNewExpenses];
-          platformsChanged = true;
-          return { ...plat, lastProcessedDate: currentDate };
-        }
-      }
-      return plat;
-    });
-
-    if (totalNewExpenses.length > 0) {
-      setExpenses(prev => [...totalNewExpenses, ...prev]);
-    }
-    if (categoriesChanged) {
-      setCategories(updatedCategories);
-    }
-    if (platformsChanged) {
-      setPlatforms(updatedPlatforms);
-    }
-  }, [expenses, categories, platforms, t]);
-
-  React.useEffect(() => {
-    if (isAuthenticated) {
-      syncRecurringTransactions();
-    }
-  }, [isAuthenticated, syncRecurringTransactions]);
 
   const deleteIncome = (id: string | number) => {
     setIncomes(prev => prev.filter(i => i.id !== id));
@@ -839,55 +771,42 @@ function AppContent() {
       }
     });
 
-    // --- RECURRING TEMPLATES ---
     // Rent
-    const rentTemplate: ExpenseRecord = {
-      id: getNextId(),
+    const rentTemplate: Omit<ExpenseRecord, 'id'> = {
       amount: '1500,00',
       category: 'rent',
       date: '2026-03-01',
-      initialDate: '2026-03-01',
-      frequency: 'monthly',
       status: 'paid',
-      isRecurring: true,
       notes: 'Aluguel Mensal do Carro'
     };
-    allExpenses.push(rentTemplate);
+    allExpenses.push({ ...rentTemplate, id: getNextId() });
     // Instances for April and May
-    allExpenses.push({ ...rentTemplate, id: getNextId(), date: '2026-04-01', isRecurring: false, parentId: rentTemplate.id });
-    allExpenses.push({ ...rentTemplate, id: getNextId(), date: '2026-05-01', isRecurring: false, parentId: rentTemplate.id });
+    allExpenses.push({ ...rentTemplate, id: getNextId(), date: '2026-04-01' });
+    allExpenses.push({ ...rentTemplate, id: getNextId(), date: '2026-05-01' });
 
     // Internet
-    const internetTemplate: ExpenseRecord = {
-      id: getNextId(),
+    const internetTemplate: Omit<ExpenseRecord, 'id'> = {
       amount: '120,00',
       category: 'internet',
       date: '2026-03-10',
-      initialDate: '2026-03-10',
-      frequency: 'monthly',
       status: 'paid',
-      isRecurring: true,
       notes: 'Plano de Dados'
     };
-    allExpenses.push(internetTemplate);
+    allExpenses.push({ ...internetTemplate, id: getNextId() });
     // Instances for April and May
-    allExpenses.push({ ...internetTemplate, id: getNextId(), date: '2026-04-10', isRecurring: false, parentId: internetTemplate.id });
-    allExpenses.push({ ...internetTemplate, id: getNextId(), date: '2026-05-10', isRecurring: false, parentId: internetTemplate.id });
+    allExpenses.push({ ...internetTemplate, id: getNextId(), date: '2026-04-10' });
+    allExpenses.push({ ...internetTemplate, id: getNextId(), date: '2026-05-10' });
 
     // Wash (Weekly)
-    const washTemplate: ExpenseRecord = {
-      id: getNextId(),
+    const washTemplate: Omit<ExpenseRecord, 'id'> = {
       amount: '60,00',
       category: 'maintenance',
       subCategory: 'Lavagem',
       date: '2026-03-02',
-      initialDate: '2026-03-02',
-      frequency: 'weekly',
       status: 'paid',
-      isRecurring: true,
       notes: 'Lavagem Semanal'
     };
-    allExpenses.push(washTemplate);
+    allExpenses.push({ ...washTemplate, id: getNextId() });
     // Instances for March, April and May
     const washDates = [
       '2026-03-09', '2026-03-16', '2026-03-23', '2026-03-30',
@@ -895,7 +814,7 @@ function AppContent() {
       '2026-05-04', '2026-05-11', '2026-05-18'
     ];
     washDates.forEach(d => {
-      allExpenses.push({ ...washTemplate, id: getNextId(), date: d, isRecurring: false, parentId: washTemplate.id });
+      allExpenses.push({ ...washTemplate, id: getNextId(), date: d });
     });
 
     // Update state
@@ -945,9 +864,19 @@ function AppContent() {
     setCurrentScreen('reports');
   };
 
+  const filteredIncomes = React.useMemo(() => {
+    if (!activeVehicleId) return incomes;
+    return incomes.filter(i => i.vehicleId === activeVehicleId);
+  }, [incomes, activeVehicleId]);
+
+  const filteredExpenses = React.useMemo(() => {
+    if (!activeVehicleId) return expenses;
+    return expenses.filter(e => e.vehicleId === activeVehicleId);
+  }, [expenses, activeVehicleId]);
+
   const fuelPerformance = React.useMemo(() => {
-    return calculateFuelPerformance(expenses, 'pt-BR'); // or language context if available here, but App uses pt-BR defaults
-  }, [expenses]);
+    return calculateFuelPerformance(filteredExpenses, 'pt-BR'); // or language context if available here, but App uses pt-BR defaults
+  }, [filteredExpenses]);
 
   const renderScreen = () => {
     if (!isAuthenticated) {
@@ -960,16 +889,15 @@ function AppContent() {
     switch (currentScreen) {
       case 'dashboard':
         return <DashboardScreen 
-          incomes={incomes} 
-          expenses={expenses} 
+          incomes={filteredIncomes} 
+          expenses={filteredExpenses} 
           onNavigate={navigateTo} 
           goal={getGoalForPeriod()} 
           onSaveGoal={updateGoalForPeriod}
           userProfile={userProfile!}
+          activeVehicleId={activeVehicleId}
           isPrivacyActive={isPrivacyActive}
           onPrivacyToggle={() => setIsPrivacyActive(!isPrivacyActive)}
-          onConfirmIncome={addIncome}
-          onConfirmExpense={addExpense}
           onDeleteExpense={deleteExpense}
           onUpdateProfile={handleUpdateProfile}
           filter={dashboardFilter}
@@ -985,8 +913,8 @@ function AppContent() {
         />;
       case 'reports':
         return <ReportsScreen 
-          incomes={incomes} 
-          expenses={expenses} 
+          incomes={filteredIncomes} 
+          expenses={filteredExpenses} 
           onNavigate={navigateTo} 
           onDeleteIncome={deleteIncome} 
           onDeleteExpense={deleteExpense} 
@@ -1002,28 +930,33 @@ function AppContent() {
       case 'add':
         return <AddSelectionScreen onNavigate={navigateTo} onSmartImport={handleSmartImport} />;
       case 'add-income':
-        return <AddIncomeScreen key={initialData?.id || 'new-income'} onConfirm={addIncome} onNavigate={navigateTo} incomes={incomes} onDeleteIncome={deleteIncome} platforms={platforms} initialData={initialData} />;
+        return <AddIncomeScreen key={initialData?.id || 'new-income'} onConfirm={addIncome} onNavigate={navigateTo} incomes={filteredIncomes} onDeleteIncome={deleteIncome} platforms={platforms} initialData={initialData} />;
       case 'add-expense':
         return <AddExpenseScreen 
           key={initialData?.id || 'new-expense'} 
           onConfirm={addExpense} 
           onNavigate={navigateTo} 
-          expenses={expenses} 
+          expenses={filteredExpenses} 
           onDeleteExpense={deleteExpense} 
           categories={categories} 
           onSaveCategories={setCategories}
           userProfile={userProfile!}
+          goalHistory={goalHistory}
           onSaveProfile={handleUpdateProfile}
           initialData={initialData} 
+          activeVehicleId={activeVehicleId}
         />;
       case 'calculator':
-        return <CalculatorScreen onNavigate={navigateTo} fuelPerformance={fuelPerformance} expenses={expenses} />;
+        return <CalculatorScreen onNavigate={navigateTo} fuelPerformance={fuelPerformance} expenses={filteredExpenses} />;
       case 'reminders':
         return <RemindersScreen 
           userProfile={userProfile!} 
           onSaveProfile={handleUpdateProfile}
           onNavigate={navigateTo}
+          activeVehicleId={activeVehicleId}
         />;
+      case 'help':
+        return <HelpScreen />;
       case 'settings':
         return <SettingsScreen 
           goal={getGoalForPeriod()} 
@@ -1046,25 +979,24 @@ function AppContent() {
           onSavePlatforms={(updated) => {
             setPlatforms(updated);
           }}
-          expenses={expenses}
+          expenses={filteredExpenses}
           filter={dashboardFilter}
           selectedDate={dashboardSelectedDate}
           selectedYear={dashboardSelectedYear}
           selectedMonth={dashboardSelectedMonth}
           selectedWeek={dashboardSelectedWeek}
+          activeVehicleId={activeVehicleId}
         />;
       default:
         return <DashboardScreen 
-          incomes={incomes} 
-          expenses={expenses} 
+          incomes={filteredIncomes} 
+          expenses={filteredExpenses} 
           onNavigate={navigateTo} 
           goal={getGoalForPeriod()} 
           onSaveGoal={updateGoalForPeriod}
           userProfile={userProfile!}
           isPrivacyActive={isPrivacyActive}
           onPrivacyToggle={() => setIsPrivacyActive(!isPrivacyActive)}
-          onConfirmIncome={addIncome}
-          onConfirmExpense={addExpense}
           onDeleteExpense={deleteExpense}
           onUpdateProfile={handleUpdateProfile}
           filter={dashboardFilter}
@@ -1095,7 +1027,14 @@ function AppContent() {
     return isAdminMode ? (
       <AdminScreen onNavigate={() => window.location.href = '/'} />
     ) : isAuthenticated ? (
-      <Layout currentScreen={currentScreen} onNavigate={navigateTo} onLogout={handleLogout}>
+      <Layout 
+        currentScreen={currentScreen} 
+        onNavigate={navigateTo} 
+        onLogout={handleLogout}
+        userProfile={userProfile}
+        activeVehicleId={activeVehicleId}
+        onActiveVehicleChange={setActiveVehicleId}
+      >
         {renderScreen()}
       </Layout>
     ) : (

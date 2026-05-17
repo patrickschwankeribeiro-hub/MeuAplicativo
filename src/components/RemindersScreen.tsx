@@ -21,12 +21,16 @@ interface RemindersScreenProps {
   userProfile: UserProfile;
   onSaveProfile: (profile: UserProfile) => void;
   onNavigate: (screen: any) => void;
+  activeVehicleId: string | null;
 }
 
-export function RemindersScreen({ userProfile, onSaveProfile, onNavigate }: RemindersScreenProps) {
+export function RemindersScreen({ userProfile, onSaveProfile, onNavigate, activeVehicleId }: RemindersScreenProps) {
   const { t } = useLanguage();
   const [isAdding, setIsAdding] = useState(false);
-  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  
+  // Track all reminders but display only active vehicle ones
+  const allReminders = userProfile.reminders || [];
+  const currentReminders = allReminders.filter(r => r.vehicleId === activeVehicleId);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -39,13 +43,12 @@ export function RemindersScreen({ userProfile, onSaveProfile, onNavigate }: Remi
   const [remindEveryXKm, setRemindEveryXKm] = useState<string>('');
   const [remindAtKm, setRemindAtKm] = useState<string>('');
 
-  const currentReminders = userProfile.reminders || [];
-
   const handleSaveReminder = () => {
     if (!title) return;
 
     const newReminder: Reminder = {
       id: editingId || Date.now().toString(),
+      vehicleId: activeVehicleId || undefined,
       title,
       notes,
       channel,
@@ -61,9 +64,9 @@ export function RemindersScreen({ userProfile, onSaveProfile, onNavigate }: Remi
 
     let updatedReminders;
     if (editingId) {
-      updatedReminders = currentReminders.map(r => r.id === editingId ? newReminder : r);
+      updatedReminders = allReminders.map(r => r.id === editingId ? newReminder : r);
     } else {
-      updatedReminders = [newReminder, ...currentReminders];
+      updatedReminders = [newReminder, ...allReminders];
     }
 
     onSaveProfile({
@@ -105,16 +108,18 @@ export function RemindersScreen({ userProfile, onSaveProfile, onNavigate }: Remi
   };
 
   const handleDelete = (id: string) => {
-    onSaveProfile({
-      ...userProfile,
-      reminders: currentReminders.filter(r => r.id !== id)
-    });
+    if (window.confirm(t('confirmDelete') || 'Tem certeza que deseja excluir este lembrete?')) {
+      onSaveProfile({
+        ...userProfile,
+        reminders: allReminders.filter(r => r.id !== id)
+      });
+    }
   };
 
   const toggleReminder = (id: string) => {
     onSaveProfile({
       ...userProfile,
-      reminders: currentReminders.map(r => 
+      reminders: allReminders.map(r => 
         r.id === id ? { ...r, isActive: !r.isActive } : r
       )
     });
