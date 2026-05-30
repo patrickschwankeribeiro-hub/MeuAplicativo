@@ -1,28 +1,32 @@
 
-export const parseLocaleNumber = (value: string, language: string) => {
-  if (!value) return 0;
+export const parseLocaleNumber = (value: any, language: string) => {
+  if (value === undefined || value === null) return 0;
+  if (typeof value === 'number') return value;
+  
+  const strValue = String(value).trim();
+  if (!strValue) return 0;
   
   // If the value contains both . and , we need to be careful
   // If it contains only one, we can be more flexible
-  const hasComma = value.includes(',');
-  const hasDot = value.includes('.');
+  const hasComma = strValue.includes(',');
+  const hasDot = strValue.includes('.');
   
-  let cleanValue = value;
+  let cleanValue = strValue;
   
   if (hasComma && !hasDot) {
     // Likely European decimal (e.g. "45,5")
-    cleanValue = value.replace(',', '.');
+    cleanValue = strValue.replace(',', '.');
   } else if (hasDot && !hasComma) {
     // Likely US decimal (e.g. "45.5")
-    cleanValue = value; 
+    cleanValue = strValue; 
   } else if (hasDot && hasComma) {
     // Both present. The last one is the decimal.
-    if (value.lastIndexOf(',') > value.lastIndexOf('.')) {
+    if (strValue.lastIndexOf(',') > strValue.lastIndexOf('.')) {
       // e.g. "1.234,56"
-      cleanValue = value.replace(/\./g, '').replace(',', '.');
+      cleanValue = strValue.replace(/\./g, '').replace(',', '.');
     } else {
       // e.g. "1,234.56"
-      cleanValue = value.replace(/,/g, '');
+      cleanValue = strValue.replace(/,/g, '');
     }
   }
   
@@ -56,3 +60,52 @@ export const formatLocaleCurrency = (value: number | string, language: string) =
     maximumFractionDigits: 2,
   });
 };
+
+export const handleCurrencySelection = (e: any) => {
+  if (e && e.currentTarget) {
+    const input = e.currentTarget;
+    const len = input.value.length;
+    input.setSelectionRange(len, len);
+  }
+};
+
+export const handleCurrencyKeyDown = (
+  e: any,
+  currentValue: string,
+  onChange: (newValue: string) => void,
+  language: string
+) => {
+  const allowedKeys = ['Tab', 'Enter', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+  if (allowedKeys.includes(e.key)) {
+    return;
+  }
+  
+  if (e.ctrlKey || e.metaKey || e.altKey) {
+    return;
+  }
+
+  e.preventDefault();
+
+  const digits = currentValue.replace(/\D/g, '');
+
+  if (e.key >= '0' && e.key <= '9') {
+    const newDigits = (digits === '0' || !digits) ? e.key : digits + e.key;
+    onChange(formatMaskedCurrency(newDigits, language));
+  } else if (e.key === 'Backspace') {
+    if (digits.length <= 1) {
+      onChange(formatMaskedCurrency('0', language));
+    } else {
+      const newDigits = digits.substring(0, digits.length - 1);
+      onChange(formatMaskedCurrency(newDigits, language));
+    }
+  }
+
+  if (e.currentTarget) {
+    const target = e.currentTarget;
+    setTimeout(() => {
+      const len = target.value.length;
+      target.setSelectionRange(len, len);
+    }, 0);
+  }
+};
+

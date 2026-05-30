@@ -13,9 +13,10 @@ interface DatePickerProps {
   setDate: (date?: Date) => void
   placeholder?: string
   className?: string
+  children?: React.ReactNode
 }
 
-export function DatePicker({ date, setDate, placeholder, className }: DatePickerProps) {
+export function DatePicker({ date, setDate, placeholder, className, children }: DatePickerProps) {
   const [isOpen, setIsOpen] = React.useState(false)
 
   const handleDateChange = (newDate: Date) => {
@@ -25,18 +26,26 @@ export function DatePicker({ date, setDate, placeholder, className }: DatePicker
 
   return (
     <>
-      <Button
-        variant={"outline"}
-        onClick={() => setIsOpen(true)}
-        className={cn(
-          "w-full justify-start text-left font-bold text-sm bg-surface-container-lowest border-outline-variant/30 rounded-lg px-3 py-1.5 h-auto min-h-[44px]",
-          !date && "text-on-surface-variant",
-          className
-        )}
-      >
-        <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-        {date ? format(date, "PPP", { locale: ptBR }) : <span>{placeholder || "Selecione uma data"}</span>}
-      </Button>
+      {children ? (
+        <div onClick={() => setIsOpen(true)} className={cn("cursor-pointer", className)}>
+          {children}
+        </div>
+      ) : (
+        <Button
+          variant={"outline"}
+          onClick={() => setIsOpen(true)}
+          className={cn(
+            "w-full justify-start text-left font-bold text-sm bg-surface-container-lowest border-outline-variant/30 rounded-lg px-3 py-1.5 h-auto min-h-[44px] flex items-center min-w-0 overflow-hidden",
+            !date && "text-on-surface-variant",
+            className
+          )}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4 text-primary shrink-0" />
+          <span className="truncate flex-1 min-w-0">
+            {date ? format(date, "PPP", { locale: ptBR }) : (placeholder || "Selecione uma data")}
+          </span>
+        </Button>
+      )}
 
       <AnimatePresence>
         {isOpen && (

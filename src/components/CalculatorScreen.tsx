@@ -1,20 +1,28 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calculator as CalcIcon, Info, CheckCircle2, AlertCircle, RotateCcw, Fuel, TrendingDown, Sparkles, History, Mic, Trash2, Check, Loader2 } from 'lucide-react';
+import { Calculator as CalcIcon, Info, CheckCircle2, AlertCircle, RotateCcw, Fuel, TrendingDown, Sparkles, History, Car, ChevronDown } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { Screen, ExpenseRecord } from '../types';
+import { Screen, ExpenseRecord, UserProfile } from '../types';
 import { formatLocaleCurrency, parseLocaleNumber } from '../lib/currency';
 import { FuelPerformance, calculateFuelPerformance, FuelCalculationMode } from '../lib/fuel';
-import { parseVoiceCommand } from '../services/aiService';
-import { VoiceVisualizer } from './ui/VoiceVisualizer';
 
 interface CalculatorScreenProps {
   onNavigate: (screen: Screen, data?: any) => void;
   fuelPerformance?: FuelPerformance;
   expenses: ExpenseRecord[];
+  userProfile?: UserProfile;
+  activeVehicleId?: string | null;
+  onActiveVehicleChange?: (id: string) => void;
 }
 
-export function CalculatorScreen({ onNavigate, fuelPerformance: initialFuelPerformance, expenses }: CalculatorScreenProps) {
+export function CalculatorScreen({ 
+  onNavigate, 
+  fuelPerformance: initialFuelPerformance, 
+  expenses,
+  userProfile,
+  activeVehicleId,
+  onActiveVehicleChange
+}: CalculatorScreenProps) {
   const { t, language } = useLanguage();
   const [ethanolPrice, setEthanolPrice] = useState('');
   const [gasolinePrice, setGasolinePrice] = useState('');
@@ -22,107 +30,7 @@ export function CalculatorScreen({ onNavigate, fuelPerformance: initialFuelPerfo
   const [isSmartMode, setIsSmartMode] = useState(false);
   const [calcMode, setCalcMode] = useState<FuelCalculationMode>('all');
   
-  const [isRecording, setIsRecording] = useState(false);
-  const [isProcessingVoice, setIsProcessingVoice] = useState(false);
-  const [recognitionInstance, setRecognitionInstance] = useState<any>(null);
-  const [lastTranscript, setLastTranscript] = useState('');
-  const [interimTranscript, setInterimTranscript] = useState('');
-  const [errorAlert, setErrorAlert] = useState<string | null>(null);
-  
-  const processTranscript = async (transcript: string) => {
-    if (!transcript) return;
-    
-    setIsProcessingVoice(true);
-    try {
-      const data = await parseVoiceCommand(transcript, 'calculator', []);
-      
-      if (data.ethanolPrice) {
-        setEthanolPrice(data.ethanolPrice.toLocaleString(language === 'pt-BR' ? 'pt-BR' : 'en-US', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }));
-      }
-      if (data.gasolinePrice) {
-        setGasolinePrice(data.gasolinePrice.toLocaleString(language === 'pt-BR' ? 'pt-BR' : 'en-US', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }));
-      }
-      
-      setLastTranscript('');
-      setInterimTranscript('');
-    } catch (error) {
-      console.error('Voice parsing error', error);
-      setErrorAlert(t('voiceError'));
-    } finally {
-      setIsProcessingVoice(false);
-    }
-  };
 
-  const startVoiceCapture = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setErrorAlert(t('speechRecognitionNotSupported'));
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = language === 'pt-BR' ? 'pt-BR' : 'en-US';
-    recognition.interimResults = true;
-    recognition.continuous = true;
-
-    recognition.onstart = () => {
-      setIsRecording(true);
-      setLastTranscript('');
-      setInterimTranscript('');
-    };
-
-    recognition.onresult = (event: any) => {
-      let finalTranscript = '';
-      let interim = '';
-
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
-        } else {
-          interim += event.results[i][0].transcript;
-        }
-      }
-      
-      if (finalTranscript) {
-        setLastTranscript(prev => prev + ' ' + finalTranscript);
-      }
-      setInterimTranscript(interim);
-    };
-
-    recognition.onerror = (event: any) => {
-      console.error('Speech recognition error', event.error);
-      setIsRecording(false);
-      setErrorAlert(t('voiceError'));
-    };
-
-    recognition.onend = () => {
-      // Wait for manual confirm
-    };
-
-    setRecognitionInstance(recognition);
-    recognition.start();
-  };
-
-  const cancelRecording = () => {
-    recognitionInstance?.stop();
-    setIsRecording(false);
-    setLastTranscript('');
-    setInterimTranscript('');
-  };
-
-  const stopAndConfirm = () => {
-    recognitionInstance?.stop();
-    setIsRecording(false);
-    if (lastTranscript || interimTranscript) {
-      processTranscript(lastTranscript + ' ' + interimTranscript);
-    }
-  };
 
   const [result, setResult] = useState<{ 
     advantage: 'ethanol' | 'gasoline'; 
@@ -219,24 +127,47 @@ export function CalculatorScreen({ onNavigate, fuelPerformance: initialFuelPerfo
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-col gap-2">
-        <h2 className="text-3xl font-black font-headline text-on-surface tracking-tight flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-xl">
-            <CalcIcon className="text-primary" size={28} />
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-3xl font-black font-headline text-on-surface tracking-tight flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-xl">
+              <CalcIcon className="text-primary" size={28} />
+            </div>
+            {t('calculator')}
+          </h2>
+          <p className="text-neutral-500 font-medium md:max-w-xl">
+            {isSmartMode && isSmartModeEnabled ? (
+              <>
+                O etanol é vantajoso se o preço dele for até <span className="font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-md">{(currentFuelPerformance?.efficiencyRatio || 70).toFixed(2)}%</span> do valor da gasolina.
+              </>
+            ) : (
+              <>
+                {t('flexRatioInfo')} <span className="text-[10px] font-bold text-neutral-400 block mt-1">(você pode ajustar essa porcentagem abaixo)</span>
+              </>
+            )}
+          </p>
+        </div>
+
+        {/* Replicated Symmetrical Active Vehicle Option Select */}
+        {userProfile?.vehicles && userProfile.vehicles.length > 0 && onActiveVehicleChange && (
+          <div className="bg-surface-container-low px-4 py-2 rounded-2xl border border-surface-container-high flex items-center gap-2 max-w-[200px] shadow-sm shrink-0">
+            <Car size={14} className="text-primary shrink-0" />
+            <div className="relative w-full overflow-hidden text-left">
+              <select
+                value={activeVehicleId || ''}
+                onChange={(e) => onActiveVehicleChange(e.target.value)}
+                className="bg-transparent text-xs font-black text-on-surface outline-none appearance-none cursor-pointer pr-6 truncate w-full"
+              >
+                {userProfile.vehicles.map(v => (
+                  <option key={v.id} value={v.id}>
+                    {v.brand} {v.model}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={12} className="absolute right-0 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none opacity-50" />
+            </div>
           </div>
-          {t('calculator')}
-        </h2>
-        <p className="text-neutral-500 font-medium">
-          {isSmartMode && isSmartModeEnabled ? (
-            <>
-              O etanol é vantajoso se o preço dele for até <span className="font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-md">{(currentFuelPerformance?.efficiencyRatio || 70).toFixed(2)}%</span> do valor da gasolina.
-            </>
-          ) : (
-            <>
-              {t('flexRatioInfo')} <span className="text-[10px] font-bold text-neutral-400 block mt-1">(você pode ajustar essa porcentagem abaixo)</span>
-            </>
-          )}
-        </p>
+        )}
       </header>
 
       <div className="flex flex-col gap-4">
@@ -291,78 +222,7 @@ export function CalculatorScreen({ onNavigate, fuelPerformance: initialFuelPerfo
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <section className="bg-surface-container-lowest p-8 rounded-[2.5rem] shadow-xl border border-surface-container-high space-y-6">
-          <div className="flex flex-col items-center justify-center p-2">
-            {isRecording ? (
-              <div className="w-full flex flex-col items-center gap-3 bg-secondary/5 rounded-3xl p-4 border border-secondary/20 shadow-inner animate-in fade-in zoom-in duration-300">
-                <div className="w-full flex items-center gap-4">
-                  <button 
-                    onClick={cancelRecording}
-                    className="p-3 bg-error/10 text-error rounded-full hover:bg-error/20 transition-all active:scale-90 shadow-sm"
-                    title={t('cancel')}
-                  >
-                    <Trash2 size={24} />
-                  </button>
-                  
-                  <div className="flex-1 overflow-hidden">
-                    <VoiceVisualizer isRecording={isRecording} />
-                  </div>
-                  
-                  <button 
-                    onClick={stopAndConfirm}
-                    className="p-3 bg-secondary text-on-secondary rounded-full hover:shadow-lg hover:shadow-secondary/30 transition-all active:scale-90 shadow-md ring-4 ring-secondary/20"
-                    title={t('confirm')}
-                  >
-                    <Check size={28} className="font-black" />
-                  </button>
-                </div>
-                
-                <div className="w-full min-h-[40px] px-2 text-center">
-                  <p className="text-xs text-secondary/70 italic leading-relaxed line-clamp-2">
-                    {lastTranscript}
-                    <span className="text-secondary opacity-50">{interimTranscript}</span>
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <button 
-                className={`p-3 rounded-full transition-all active:scale-95 flex items-center justify-center shrink-0 shadow-sm ${
-                  isProcessingVoice 
-                    ? 'bg-neutral-200 text-neutral-500' 
-                    : 'bg-primary/10 text-primary hover:bg-primary/20'
-                }`}
-                disabled={isProcessingVoice}
-                title={t('voiceCapture')}
-                onClick={startVoiceCapture}
-              >
-                {isProcessingVoice ? <Loader2 size={28} className="animate-spin" /> : <Mic size={28} />}
-              </button>
-            )}
-            {isRecording && (
-                <p className="mt-2 text-[10px] font-black text-secondary animate-pulse uppercase tracking-[0.2em] text-center">{t('recording')}</p>
-            )}
-            {isProcessingVoice && (
-                <p className="mt-2 text-[10px] font-black text-neutral-400 animate-pulse uppercase tracking-widest text-center">{t('processingVoice')}</p>
-            )}
-          </div>
-
           <AnimatePresence mode="wait">
-            {errorAlert && (
-              <motion.div
-                key="voice-error"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="p-3 bg-error/10 text-error rounded-xl text-xs font-bold flex items-center justify-between"
-              >
-                <div className="flex items-center gap-2">
-                  <AlertCircle size={14} />
-                  {errorAlert}
-                </div>
-                <button onClick={() => setErrorAlert(null)}>
-                  <RotateCcw size={14} />
-                </button>
-              </motion.div>
-            )}
 
             {isSmartMode && !isSmartModeEnabled && (
               <motion.div 

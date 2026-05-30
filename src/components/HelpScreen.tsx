@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HelpCircle, ChevronDown, MessageSquare, ShieldCheck, Mail, Phone, ExternalLink } from 'lucide-react';
+import { HelpCircle, ChevronDown, MessageSquare, ShieldCheck, Mail, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -13,65 +13,74 @@ export function HelpScreen() {
     { q: 'faqQ3', a: 'faqA3' },
     { q: 'faqQ4', a: 'faqA4' },
     { q: 'faqQ5', a: 'faqA5' },
-    { q: 'faqQ6', a: 'faqA6' }
+    { q: 'faqQ6', a: 'faqA6' },
+    { q: 'faqQ7', a: 'faqA7' },
+    { q: 'faqQ8', a: 'faqA8' },
+    { q: 'faqQPeriod', a: 'faqAPeriod' }
   ];
 
   return (
-    <div className="space-y-10 pb-20 max-w-4xl mx-auto">
-      <header className="text-center space-y-4">
-        <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto mb-6 rotate-3">
-          <HelpCircle size={40} className="text-primary" />
+    <div className="space-y-6 pb-12 max-w-2xl mx-auto">
+      {/* Compact Header */}
+      <header className="text-center space-y-2">
+        <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-3 rotate-3 shadow-sm">
+          <HelpCircle size={22} className="text-primary" />
         </div>
-        <h2 className="text-4xl font-extrabold font-headline text-on-surface tracking-tight">{t('helpSupport')}</h2>
-        <p className="text-on-surface-variant font-body text-lg max-w-lg mx-auto">
+        <h2 className="text-xl font-black font-headline text-on-surface tracking-tight">{t('helpSupport')}</h2>
+        <p className="text-on-surface-variant font-body text-xs max-w-sm mx-auto">
           Precisa de ajuda? Explore nosso FAQ ou entre em contato com nosso time de suporte.
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-10">
-        <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm flex flex-col items-center text-center space-y-4">
-          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-blue-600">
-            <Mail size={24} />
+      {/* Slim contact cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/10 shadow-sm flex items-center gap-3">
+          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center text-blue-600 shrink-0">
+            <Mail size={16} />
           </div>
-          <div>
-            <h4 className="font-black text-sm uppercase tracking-wider">{t('email') || 'Email'}</h4>
-            <p className="text-xs text-on-surface-variant mt-1">support@kmprofit.app</p>
-          </div>
-        </div>
-        <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm flex flex-col items-center text-center space-y-4">
-          <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-600">
-            <MessageSquare size={24} />
-          </div>
-          <div>
-            <h4 className="font-black text-sm uppercase tracking-wider">WhatsApp</h4>
-            <p className="text-xs text-on-surface-variant mt-1">+55 (11) 99999-9999</p>
+          <div className="min-w-0">
+            <h4 className="font-black text-[9px] uppercase tracking-wider text-neutral-400 font-headline leading-none mb-0.5">{t('email') || 'Email'}</h4>
+            <p className="text-xs font-semibold text-on-surface truncate">support@kmprofit.app</p>
           </div>
         </div>
-        <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm flex flex-col items-center text-center space-y-4">
-          <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center text-purple-600">
-            <ShieldCheck size={24} />
+
+        <div className="bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/10 shadow-sm flex items-center gap-3">
+          <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center text-green-600 shrink-0">
+            <MessageSquare size={16} />
           </div>
-          <div>
-            <h4 className="font-black text-sm uppercase tracking-wider">Privacidade</h4>
-            <p className="text-xs text-on-surface-variant mt-1">kmprofit.app/privacy</p>
+          <div className="min-w-0">
+            <h4 className="font-black text-[9px] uppercase tracking-wider text-neutral-400 font-headline leading-none mb-0.5">WhatsApp</h4>
+            <p className="text-xs font-semibold text-on-surface truncate">+55 (11) 99999-9999</p>
+          </div>
+        </div>
+
+        <div className="bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/10 shadow-sm flex items-center gap-3">
+          <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center text-purple-600 shrink-0">
+            <ShieldCheck size={16} />
+          </div>
+          <div className="min-w-0">
+            <h4 className="font-black text-[9px] uppercase tracking-wider text-neutral-400 font-headline leading-none mb-0.5">Privacidade</h4>
+            <p className="text-xs font-semibold text-on-surface truncate">kmprofit.app/privacy</p>
           </div>
         </div>
       </div>
 
-      <div className="bg-surface-container-lowest rounded-[2rem] p-8 md:p-12 shadow-sm border border-outline-variant/10">
-        <h3 className="text-2xl font-black font-headline mb-8 flex items-center gap-3">
+      {/* Clean FAQ Section */}
+      <div className="bg-surface-container-lowest rounded-2xl p-4 md:p-5 shadow-sm border border-outline-variant/10">
+        <h3 className="text-sm font-black font-headline text-on-surface tracking-wider uppercase mb-4 flex items-center gap-2">
           Perguntas Frequentes
         </h3>
-        <div className="space-y-4">
+        <div className="space-y-2">
           {faqItems.map((item, index) => (
-            <div key={index} className="bg-surface-container-low rounded-2xl overflow-hidden border border-outline-variant/5">
+            <div key={index} className="bg-surface-container-low rounded-xl overflow-hidden border border-outline-variant/5">
               <button 
                 onClick={() => setOpenFaqIndex(openFaqIndex === index ? null : index)} 
-                className="w-full p-6 flex items-center justify-between text-left hover:bg-surface-container-high transition-colors"
+                className="w-full py-3 px-4 flex items-center justify-between text-left hover:bg-surface-container-high transition-colors"
+                id={`faq-btn-${index}`}
               >
-                <span className="text-base font-bold font-headline pr-6">{t(item.q)}</span>
-                <div className={`p-2 rounded-full bg-primary/10 text-primary transition-transform duration-300 ${openFaqIndex === index ? 'rotate-180' : ''}`}>
-                  <ChevronDown size={20} />
+                <span className="text-[13px] font-black font-headline text-on-surface leading-tight pr-4">{t(item.q)}</span>
+                <div className={`p-1 rounded-lg bg-primary/10 text-primary transition-transform duration-300 shrink-0 ${openFaqIndex === index ? 'rotate-180' : ''}`}>
+                  <ChevronDown size={14} />
                 </div>
               </button>
               <AnimatePresence>
@@ -82,7 +91,7 @@ export function HelpScreen() {
                     exit={{ height: 0, opacity: 0 }} 
                     className="overflow-hidden"
                   >
-                    <div className="p-6 pt-0 text-sm md:text-base text-on-surface-variant leading-relaxed font-body border-t border-outline-variant/5">
+                    <div className="px-4 pb-3 pt-1 text-[11px] leading-relaxed text-on-surface-variant font-body border-t border-outline-variant/5 border-dashed">
                       {t(item.a)}
                     </div>
                   </motion.div>
@@ -93,13 +102,17 @@ export function HelpScreen() {
         </div>
       </div>
 
-      <div className="bg-primary/5 rounded-[2rem] p-8 border border-primary/10 flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="space-y-2 text-center md:text-left">
-          <h4 className="text-xl font-black font-headline">Ainda tem dúvidas?</h4>
-          <p className="text-on-surface-variant font-body">Entre em contato direto com nossa equipe pelo portal de suporte oficial.</p>
+      {/* Compact Contact Footer Bar */}
+      <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="text-center sm:text-left">
+          <h4 className="text-xs font-black font-headline text-on-surface">Ainda tem dúvidas?</h4>
+          <p className="text-[10px] text-on-surface-variant font-body mt-0.5">Entre em contato direto com nossa equipe pelo portal de suporte oficial.</p>
         </div>
-        <button className="flex items-center gap-2 px-8 py-4 bg-primary text-on-primary rounded-2xl font-black font-headline shadow-lg shadow-primary/20 hover:scale-[0.98] transition-all whitespace-nowrap">
-          Abrir Chamado <ExternalLink size={20} />
+        <button 
+          id="btn-open-ticket"
+          className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary-dark text-on-primary rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm active:scale-95 transition-all whitespace-nowrap"
+        >
+          Abrir Chamado <ExternalLink size={12} />
         </button>
       </div>
     </div>

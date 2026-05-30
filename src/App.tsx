@@ -13,15 +13,16 @@ import { AddExpenseScreen } from './components/AddExpenseScreen';
 import { ReportsScreen } from './components/ReportsScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { CalculatorScreen } from './components/CalculatorScreen';
-import { RemindersScreen } from './components/RemindersScreen';
+import { MyVehiclesScreen } from './components/MyVehiclesScreen';
+import { FixedFinanceScreen } from './components/FixedFinanceScreen';
 import { HelpScreen } from './components/HelpScreen';
 import { AdminScreen } from './components/AdminScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { SignupScreen } from './components/SignupScreen';
-import { Screen, IncomeRecord, ExpenseRecord, Goal, UserProfile, GoalHistory, Category, Platform, CATEGORIES, PLATFORMS, TransactionStatus } from './types';
+import { Screen, IncomeRecord, ExpenseRecord, Goal, UserProfile, GoalHistory, Category, Platform, CATEGORIES, PLATFORMS, TransactionStatus, MaintenancePlanItem } from './types';
 import { parseLocaleNumber } from './lib/currency';
 import { calculateFuelPerformance } from './lib/fuel';
-import { getLocalDateString } from './lib/utils';
+import { getLocalDateString, getRawNextOccurrenceDate } from './lib/utils';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 
@@ -95,10 +96,8 @@ function AppContent() {
   const [reportsStartDate, setReportsStartDate] = useState(() => {
     const saved = localStorage.getItem('reportsStartDate');
     if (saved) return saved;
-    const d = new Date();
-    d.setMonth(d.getMonth() - 1);
-    d.setDate(1);
-    return getLocalDateString(d);
+    const currentYear = new Date().getFullYear();
+    return `${currentYear}-01-01`;
   });
   const [reportsEndDate, setReportsEndDate] = useState(() => {
     return localStorage.getItem('reportsEndDate') || getLocalDateString(new Date());
@@ -119,11 +118,35 @@ function AppContent() {
 
   const [incomes, setIncomes] = useState<IncomeRecord[]>(() => {
     const saved = localStorage.getItem('incomes');
-    return saved ? JSON.parse(saved) : [];
+    const parsed: IncomeRecord[] = saved ? JSON.parse(saved) : [];
+    let migrated = false;
+    const result = parsed.map(item => {
+      if (item.type === 'fixed' && item.isFixedConfig === undefined) {
+        migrated = true;
+        return { ...item, isFixedConfig: true };
+      }
+      return item;
+    });
+    if (migrated) {
+      localStorage.setItem('incomes', JSON.stringify(result));
+    }
+    return result;
   });
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(() => {
     const saved = localStorage.getItem('expenses');
-    return saved ? JSON.parse(saved) : [];
+    const parsed: ExpenseRecord[] = saved ? JSON.parse(saved) : [];
+    let migrated = false;
+    const result = parsed.map(item => {
+      if (item.costType === 'fixed' && item.isFixedConfig === undefined) {
+        migrated = true;
+        return { ...item, isFixedConfig: true };
+      }
+      return item;
+    });
+    if (migrated) {
+      localStorage.setItem('expenses', JSON.stringify(result));
+    }
+    return result;
   });
   const [goal, setGoal] = useState<Goal>(() => {
     const saved = localStorage.getItem('goal');
@@ -203,29 +226,72 @@ function AppContent() {
     const loadedPlatforms: Platform[] = JSON.parse(saved);
     const systemIds = new Set(PLATFORMS.map(p => p.id));
     
-    const merged = loadedPlatforms
+    const normalizeStr = (str: string) => 
+      str.toLowerCase()
+         .normalize("NFD")
+         .replace(/[\u0300-\u036f]/g, "")
+         .replace(/\s+/g, "")
+         .trim();
+
+    const defaultPlatformNamesNormalized = new Set([
+      'uber', '99', 'indrive', 'taxi', 'freight', 'frete', 'ifood', 'rappi',
+      'ladydriver', 'lady driver', 'wappa', 'bonus', 'bonus', 'bono',
+      'tips', 'gorjeta', 'gorjetas', 'propina', 'pourboire', 'lalamove',
+      'loggi', 'carpool', 'carona', 'maxim', 'other', 'outro'
+    ].map(normalizeStr));
+    
+    const merged: Platform[] = [];
+    const seenIds = new Set<string>();
+    const seenNormalizedNames = new Set<string>();
+
+    const processedLoaded = loadedPlatforms
       .filter(p => !p.isDefault || systemIds.has(p.id))
       .map(p => {
-        if (p.isDefault) {
+        if (p.isDefault || systemIds.has(p.id)) {
           const defaultPlat = PLATFORMS.find(dp => dp.id === p.id);
           if (defaultPlat) {
             return {
               ...p,
+              isDefault: true,
               name: defaultPlat.name,
               icon: defaultPlat.icon,
               color: defaultPlat.color,
-              type: defaultPlat.type
+              type: defaultPlat.type,
+              subcategories: defaultPlat.subcategories
             };
           }
         }
         return p;
       });
+
+    processedLoaded.forEach(p => {
+      const normName = normalizeStr(p.isDefault ? p.id : p.name);
+      if (seenIds.has(p.id)) return;
+      if (!p.isDefault && (defaultPlatformNamesNormalized.has(normName) || seenNormalizedNames.has(normName))) return;
       
-    const existingIds = new Set(merged.map(p => p.id));
+      merged.push(p);
+      seenIds.add(p.id);
+      seenNormalizedNames.add(normName);
+    });
+
     PLATFORMS.forEach(p => {
-      if (!existingIds.has(p.id)) {
+      if (!seenIds.has(p.id)) {
         merged.push(p);
+        seenIds.add(p.id);
+        seenNormalizedNames.add(normalizeStr(p.id));
       }
+    });
+
+    const orderMap = new Map(PLATFORMS.map((p, index) => [p.id, index]));
+    merged.sort((a, b) => {
+      const idxA = orderMap.get(a.id);
+      const idxB = orderMap.get(b.id);
+      if (idxA !== undefined && idxB !== undefined) {
+        return idxA - idxB;
+      }
+      if (idxA !== undefined) return -1;
+      if (idxB !== undefined) return 1;
+      return 0;
     });
 
     return merged;
@@ -260,6 +326,44 @@ function AppContent() {
     localStorage.setItem('userProfile', JSON.stringify(userProfile));
   }, [userProfile]);
 
+  // Keep vehicle currentOdometers in sync with highest readings from remaining incomes and expenses
+  useEffect(() => {
+    if (!userProfile?.vehicles || userProfile.vehicles.length === 0) return;
+
+    let profileChanged = false;
+    const updatedVehicles = userProfile.vehicles.map(vehicle => {
+      const baseOdo = vehicle.initialOdometer !== undefined ? vehicle.initialOdometer : (vehicle.currentOdometer || 0);
+
+      const vehicleIncomes = incomes.filter(i => i.vehicleId === vehicle.id);
+      const maxIncomeOdo = vehicleIncomes.reduce((max, i) => {
+        const odo = Number(i.endOdometer);
+        return (!isNaN(odo) && odo > max) ? odo : max;
+      }, 0);
+
+      const vehicleExpenses = expenses.filter(e => e.vehicleId === vehicle.id);
+      const maxExpenseOdo = vehicleExpenses.reduce((max, e) => {
+        const odo = e.odometer ? Number(e.odometer.replace(',', '.')) : 0;
+        return (!isNaN(odo) && odo > max) ? odo : max;
+      }, 0);
+
+      const calculatedMaxOdo = Math.max(baseOdo, maxIncomeOdo, maxExpenseOdo);
+
+      if (vehicle.currentOdometer !== calculatedMaxOdo || vehicle.initialOdometer !== baseOdo) {
+        profileChanged = true;
+        return {
+          ...vehicle,
+          initialOdometer: baseOdo,
+          currentOdometer: calculatedMaxOdo
+        };
+      }
+      return vehicle;
+    });
+
+    if (profileChanged) {
+      setUserProfile(prev => prev ? { ...prev, vehicles: updatedVehicles } : null);
+    }
+  }, [incomes, expenses]);
+
   useEffect(() => {
     localStorage.setItem('categories', JSON.stringify(categories));
   }, [categories]);
@@ -275,6 +379,87 @@ function AppContent() {
   useEffect(() => {
     localStorage.setItem('expenses', JSON.stringify(expenses));
   }, [expenses]);
+
+  // Automatic registration of fixed incomes and expenses when they reach their due date
+  useEffect(() => {
+    const todayObj = new Date();
+    const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+
+    let updatedIncomes = [...incomes];
+    let incomesChanged = false;
+
+    // Process incomes
+    for (let i = 0; i < updatedIncomes.length; i++) {
+      const item = updatedIncomes[i];
+      if (item.type === 'fixed' && item.isFixedConfig === true && item.date) {
+        let currentConfigDate = item.date;
+        let count = 0;
+        // Loop while currentConfigDate <= todayStr
+        while (currentConfigDate && currentConfigDate <= todayStr && count < 100) {
+          count++;
+          incomesChanged = true;
+          // 1. Create registered transaction for the due date
+          const newTransaction: IncomeRecord = {
+            ...item,
+            id: Date.now() + Math.floor(Math.random() * 1000000) + count,
+            isFixedConfig: false,
+            date: currentConfigDate, // record on the exact due date
+          };
+          updatedIncomes.push(newTransaction);
+
+          // 2. Advance the config date
+          currentConfigDate = getRawNextOccurrenceDate(currentConfigDate, item.recurrence || 'monthly');
+        }
+        if (currentConfigDate !== item.date) {
+          updatedIncomes[i] = {
+            ...item,
+            date: currentConfigDate
+          };
+        }
+      }
+    }
+
+    let updatedExpenses = [...expenses];
+    let expensesChanged = false;
+
+    // Process expenses
+    for (let i = 0; i < updatedExpenses.length; i++) {
+      const item = updatedExpenses[i];
+      if (item.costType === 'fixed' && item.isFixedConfig === true && item.date) {
+        let currentConfigDate = item.date;
+        let count = 0;
+        // Loop while currentConfigDate <= todayStr
+        while (currentConfigDate && currentConfigDate <= todayStr && count < 100) {
+          count++;
+          expensesChanged = true;
+          // 1. Create registered transaction for the due date
+          const newTransaction: ExpenseRecord = {
+            ...item,
+            id: Date.now() + Math.floor(Math.random() * 1000000) + count,
+            isFixedConfig: false,
+            date: currentConfigDate, // record on the exact due date
+          };
+          updatedExpenses.push(newTransaction);
+
+          // 2. Advance the config date
+          currentConfigDate = getRawNextOccurrenceDate(currentConfigDate, item.recurrence || 'monthly');
+        }
+        if (currentConfigDate !== item.date) {
+          updatedExpenses[i] = {
+            ...item,
+            date: currentConfigDate
+          };
+        }
+      }
+    }
+
+    if (incomesChanged) {
+      setIncomes(updatedIncomes);
+    }
+    if (expensesChanged) {
+      setExpenses(updatedExpenses);
+    }
+  }, [incomes, expenses]);
 
   useEffect(() => {
     localStorage.setItem('goal', JSON.stringify(goal));
@@ -292,8 +477,12 @@ function AppContent() {
     setGoal(newGoal);
   };
 
-  const handleUpdateProfile = (newProfile: UserProfile) => {
-    setUserProfile(newProfile);
+  const handleUpdateProfile = (newProfileOrFn: UserProfile | ((prev: UserProfile) => UserProfile)) => {
+    if (typeof newProfileOrFn === 'function') {
+      setUserProfile(prev => prev ? newProfileOrFn(prev) : null);
+    } else {
+      setUserProfile(newProfileOrFn);
+    }
   };
 
   const navigateTo = (screen: Screen, data?: any) => {
@@ -397,6 +586,32 @@ function AppContent() {
       }
       return [newRecord, ...prev];
     });
+
+    // Update current odometer if the new record has a higher endOdometer reading
+    if ('endOdometer' in record && record.endOdometer && activeVehicleId) {
+      const newOdo = Number(record.endOdometer);
+      if (!isNaN(newOdo)) {
+        setUserProfile(prevProfile => {
+          if (!prevProfile) return null;
+          const activeVehicleIndex = prevProfile.vehicles?.findIndex(v => v.id === activeVehicleId);
+          if (activeVehicleIndex !== undefined && activeVehicleIndex !== -1) {
+            const activeVehicle = prevProfile.vehicles![activeVehicleIndex];
+            if (newOdo > (activeVehicle.currentOdometer || 0)) {
+              const updatedVehicles = [...(prevProfile.vehicles || [])];
+              updatedVehicles[activeVehicleIndex] = {
+                ...activeVehicle,
+                currentOdometer: newOdo
+              };
+              return {
+                ...prevProfile,
+                vehicles: updatedVehicles
+              };
+            }
+          }
+          return prevProfile;
+        });
+      }
+    }
   };
 
   const addExpense = (record: ExpenseRecord | Omit<ExpenseRecord, 'id'>) => {
@@ -417,24 +632,28 @@ function AppContent() {
     });
 
     // Update current odometer if the new record has a higher reading
-    if ('odometer' in record && record.odometer && userProfile && activeVehicleId) {
+    if ('odometer' in record && record.odometer && activeVehicleId) {
       const newOdo = Number(record.odometer.replace(',', '.'));
-      const activeVehicleIndex = userProfile.vehicles?.findIndex(v => v.id === activeVehicleId);
-      
-      if (activeVehicleIndex !== undefined && activeVehicleIndex !== -1) {
-        const activeVehicle = userProfile.vehicles![activeVehicleIndex];
-        if (!isNaN(newOdo) && newOdo > (activeVehicle.currentOdometer || 0)) {
-          const updatedVehicles = [...(userProfile.vehicles || [])];
-          updatedVehicles[activeVehicleIndex] = {
-            ...activeVehicle,
-            currentOdometer: newOdo
-          };
-          
-          setUserProfile({
-            ...userProfile,
-            vehicles: updatedVehicles
-          });
-        }
+      if (!isNaN(newOdo)) {
+        setUserProfile(prevProfile => {
+          if (!prevProfile) return null;
+          const activeVehicleIndex = prevProfile.vehicles?.findIndex(v => v.id === activeVehicleId);
+          if (activeVehicleIndex !== undefined && activeVehicleIndex !== -1) {
+            const activeVehicle = prevProfile.vehicles![activeVehicleIndex];
+            if (newOdo > (activeVehicle.currentOdometer || 0)) {
+              const updatedVehicles = [...(prevProfile.vehicles || [])];
+              updatedVehicles[activeVehicleIndex] = {
+                ...activeVehicle,
+                currentOdometer: newOdo
+              };
+              return {
+                ...prevProfile,
+                vehicles: updatedVehicles
+              };
+            }
+          }
+          return prevProfile;
+        });
       }
     }
   };
@@ -549,23 +768,135 @@ function AppContent() {
     setIncomes([]);
     setExpenses([]);
     setGoal({ daily: 0, weekly: 0, monthly: 0, yearly: 0 });
+    setGoalHistory({});
     localStorage.removeItem('incomes');
     localStorage.removeItem('expenses');
     localStorage.removeItem('goal');
+    localStorage.removeItem('goalHistory');
   };
 
   const loadMockData = () => {
     console.log('Loading mock data...');
-    
-    const allIncomes: IncomeRecord[] = [];
-    const allExpenses: ExpenseRecord[] = [];
-    
+
     // Helper to generate IDs
     let nextId = 100000;
     const getNextId = () => nextId++;
 
     // Base odometer
     let currentOdometer = 50000;
+    let lastFillOdometer = currentOdometer;
+
+    // Maintenance Plans Template
+    const mockPlan: MaintenancePlanItem[] = [
+      {
+        id: 'plan_oil_change',
+        name: 'oilChange',
+        subcategory: 'oilChange',
+        intervalKm: 10000,
+        lastOdometer: 58500,
+        isActive: true
+      },
+      {
+        id: 'plan_alignment',
+        name: 'alignment',
+        subcategory: 'alignment',
+        intervalKm: 10000,
+        lastOdometer: 60100,
+        isActive: true
+      },
+      {
+        id: 'plan_brake_pad',
+        name: 'brakePad',
+        subcategory: 'brakePad',
+        intervalKm: 20000,
+        lastOdometer: 59000,
+        isActive: true
+      }
+    ];
+
+    // Ensure profiles, vehicles and drivers are set up immediately
+    let updatedProfile = userProfile;
+    const fallbackDriver = {
+      id: 'drv_default',
+      name: 'João',
+      phone: '(11) 98888-8888'
+    };
+
+    if (!updatedProfile) {
+      updatedProfile = {
+        firstName: 'Motorista',
+        lastName: 'Lucrativo',
+        email: 'user@kmprofit.com',
+        vehicles: [
+          {
+            id: 'veh_default',
+            brand: 'Toyota',
+            model: 'Corolla',
+            plate: 'ABC-1234',
+            year: '2022',
+            tankCapacity: '50',
+            currentOdometer: 60500,
+            initialOdometer: 50000,
+            type: 'car',
+            maintenancePlan: mockPlan
+          }
+        ],
+        drivers: [fallbackDriver]
+      };
+    } else {
+      const updatedVehicles = [...(updatedProfile.vehicles || [])];
+      if (updatedVehicles.length === 0) {
+        updatedVehicles.push({
+          id: 'veh_default',
+          brand: 'Toyota',
+          model: 'Corolla',
+          plate: 'ABC-1234',
+          year: '2022',
+          tankCapacity: '50',
+          currentOdometer: 60500,
+          initialOdometer: 50000,
+          type: 'car',
+          maintenancePlan: mockPlan
+        });
+      } else {
+        // Update existing vehicles
+        updatedVehicles.forEach(v => {
+          if (!v.maintenancePlan || v.maintenancePlan.length === 0) {
+            v.maintenancePlan = mockPlan;
+          }
+          v.currentOdometer = Math.max(Number(v.currentOdometer || 0), 60500);
+        });
+      }
+
+      const updatedDrivers = [...(updatedProfile.drivers || [])];
+      if (updatedDrivers.length === 0) {
+        updatedDrivers.push(fallbackDriver);
+      }
+
+      updatedProfile = {
+        ...updatedProfile,
+        vehicles: updatedVehicles,
+        drivers: updatedDrivers
+      };
+    }
+
+    // Capture the registered and assigned values for use
+    const assignedVehicleId = activeVehicleId || (updatedProfile.vehicles && updatedProfile.vehicles.length > 0 ? updatedProfile.vehicles[0].id : 'veh_default');
+    const defaultDriverName = updatedProfile.drivers && updatedProfile.drivers.length > 0 
+      ? updatedProfile.drivers[0].name 
+      : fallbackDriver.name;
+
+    // Immediately commit these changes so that other components see them
+    setUserProfile(updatedProfile);
+    localStorage.setItem('userProfile', JSON.stringify(updatedProfile));
+    
+    if (!activeVehicleId) {
+      setActiveVehicleId(assignedVehicleId);
+      localStorage.setItem('activeVehicleId', assignedVehicleId);
+    }
+
+    const allIncomes: IncomeRecord[] = [];
+    const allExpenses: ExpenseRecord[] = [];
 
     // Generate data for March (31 days), April (30 days) and May (31 days)
     const months = [
@@ -581,29 +912,84 @@ function AppContent() {
         const isFuture = date > new Date();
 
         // --- INCOMES ---
-        // Daily driving income
-        let dailyIncomeAmount = 300 + Math.random() * 300;
+        // Daily driving income configured precisely for realistic profits between R$ 3,000 and R$ 6,000 per month
+        let dailyIncomeAmount = 300;
         
-        // Add more variety to April and May for better performance chart visualization
-        if (m.month === 3 || m.month === 4) {
+        if (m.month === 2) {
+          // March (Target profit ~R$ 3,400)
           const dayMod = day % 7;
           if (dayMod === 0) { // Sundays: Low income
-            dailyIncomeAmount = 100 + Math.random() * 100;
+            dailyIncomeAmount = 80 + Math.random() * 60;
           } else if (dayMod === 5 || dayMod === 6) { // Fri/Sat: High income
-            dailyIncomeAmount = 600 + Math.random() * 400;
+            dailyIncomeAmount = 350 + Math.random() * 150;
           } else {
-            dailyIncomeAmount = 250 + Math.random() * 350;
+            dailyIncomeAmount = 180 + Math.random() * 120;
           }
-          
-          // Random "bad luck" days (High expense, low income)
-          if (day === 10 || day === 22) {
-            dailyIncomeAmount = 150;
+          if (day === 10 || day === 22) dailyIncomeAmount = 100; // random slow days
+        } else if (m.month === 3) {
+          // April (Target profit ~R$ 4,700)
+          const dayMod = day % 7;
+          if (dayMod === 0) { // Sundays: Low income
+            dailyIncomeAmount = 100 + Math.random() * 80;
+          } else if (dayMod === 5 || dayMod === 6) { // Fri/Sat: High income
+            dailyIncomeAmount = 450 + Math.random() * 200;
+          } else {
+            dailyIncomeAmount = 230 + Math.random() * 140;
           }
+          if (day === 10 || day === 22) dailyIncomeAmount = 120; // random slow days
+        } else if (m.month === 4) {
+          // May (Target profit ~R$ 5,600)
+          const dayMod = day % 7;
+          if (dayMod === 0) { // Sundays: Low income
+            dailyIncomeAmount = 120 + Math.random() * 100;
+          } else if (dayMod === 5 || dayMod === 6) { // Fri/Sat: High income
+            dailyIncomeAmount = 550 + Math.random() * 250;
+          } else {
+            dailyIncomeAmount = 260 + Math.random() * 180;
+          }
+          if (day === 10 || day === 22) dailyIncomeAmount = 140; // random slow days
         }
 
         const trips = Math.floor(dailyIncomeAmount / 25) + 2;
         const km = Math.floor((dailyIncomeAmount / 2.5) * (0.8 + Math.random() * 0.4));
         currentOdometer += km;
+
+        // Realistic platform distribution using valid system platform IDs
+        const itemsList: { id: number; platform: string; amount: string; trips: string; subcategory?: string }[] = [];
+        if (day % 2 === 0) {
+          // Split between Uber and 99
+          const uberAmount = parseFloat((dailyIncomeAmount * 0.6).toFixed(2));
+          const otherAmount = parseFloat((dailyIncomeAmount * 0.4).toFixed(2));
+          const uberTrips = Math.max(1, Math.floor(trips * 0.6));
+          const otherTrips = Math.max(1, trips - uberTrips);
+          
+          itemsList.push({
+            id: getNextId(),
+            platform: 'uber',
+            subcategory: 'UberX',
+            amount: uberAmount.toFixed(2),
+            trips: uberTrips.toString()
+          });
+          itemsList.push({
+            id: getNextId(),
+            platform: '99',
+            subcategory: '99 Pop',
+            amount: otherAmount.toFixed(2),
+            trips: otherTrips.toString()
+          });
+        } else {
+          // Single platform rotation
+          const platformId = day % 3 === 1 ? 'uber' : (day % 3 === 2 ? '99' : 'indrive');
+          const subcategory = platformId === 'uber' ? 'UberX' : (platformId === '99' ? '99 Pop' : undefined);
+          
+          itemsList.push({
+            id: getNextId(),
+            platform: platformId,
+            subcategory,
+            amount: dailyIncomeAmount.toFixed(2),
+            trips: trips.toString()
+          });
+        }
 
         allIncomes.push({
           id: getNextId(),
@@ -613,14 +999,7 @@ function AppContent() {
           hoursWorked: '09:00',
           kmDriven: km,
           notes: `Ganhos do dia - ${m.name}`,
-          items: [
-            { 
-              id: getNextId(), 
-              platform: day % 2 === 0 ? 'uberx' : '99pop', 
-              amount: dailyIncomeAmount.toFixed(2), 
-              trips: trips.toString() 
-            }
-          ],
+          items: itemsList,
           status: 'paid'
         });
 
@@ -635,104 +1014,210 @@ function AppContent() {
           status: 'paid'
         });
 
-        // 2. Fuel Logic (Redesigned for realistic cycles)
+        // 2. Fuel Logic (Redesigned for 100% realistic cycles)
         if (m.month === 2) {
           // March: Gasoline Only 
-          // 05 (Full) -> 12 (Partial) -> 20 (Full) -> 26 (Full)
-          if ([5, 12, 20, 26].includes(day)) {
-            let liters = '45,0';
-            const isFull = day !== 12;
-            const notes = isFull ? 'Abastecimento Cheio' : 'Abastecimento Parcial';
+          const fuelDays = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30];
+          if (fuelDays.includes(day)) {
+            const isFull = day !== 12; // Day 12 is a partial refill
+            const dist = currentOdometer - lastFillOdometer;
             
-            currentOdometer += (day === 5 ? 0 : (day === 12 ? 200 : (day === 20 ? 300 : 450)));
-
-            allExpenses.push({
-              id: getNextId(),
-              amount: (parseLocaleNumber(liters, 'pt-BR') * 5.50).toFixed(2).replace('.', ','),
-              category: 'fuel',
-              fuelType: 'gasolineCommon',
-              date: dateStr,
-              liters: liters,
-              pricePerLiter: '5,50',
-              odometer: currentOdometer.toString(),
-              isFullTank: isFull,
-              notes: notes,
-              status: 'paid'
-            });
-          } else {
-             currentOdometer += 20;
+            if (dist > 0) {
+              const targetKmL = 11.2 + Math.random() * 1.5; // realistic Gasoline KM/L: 11.2 - 12.7
+              const litersVal = dist / targetKmL;
+              const liters = litersVal.toFixed(1).replace('.', ',');
+              const price = 5.50;
+              const amount = (litersVal * price).toFixed(2).replace('.', ',');
+              
+              allExpenses.push({
+                id: getNextId(),
+                amount: amount,
+                category: 'fuel',
+                fuelType: 'gasolineCommon',
+                date: dateStr,
+                liters: liters,
+                pricePerLiter: price.toFixed(2).replace('.', ','),
+                odometer: currentOdometer.toString(),
+                isFullTank: isFull,
+                notes: isFull ? 'Abastecimento Cheio' : 'Abastecimento Parcial',
+                status: 'paid'
+              });
+              
+              if (isFull) {
+                lastFillOdometer = currentOdometer;
+              }
+            }
           }
         } else if (m.month === 3) {
           // April: Ethanol Only
-          // 05 (Full) -> 10 (Full) -> 15 (Partial) -> 25 (Full)
-          if ([5, 10, 15, 25].includes(day)) {
-            let liters = '35,0';
-            const isFull = day !== 15;
-            const notes = isFull ? 'Cheio Etanol' : 'Parcial Etanol';
+          const fuelDays = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30];
+          if (fuelDays.includes(day)) {
+            const isFull = day !== 14; // Day 14 is a partial refill
+            const dist = currentOdometer - lastFillOdometer;
             
-            currentOdometer += (day === 5 ? 0 : (day === 10 ? 350 : (day === 15 ? 180 : 320)));
-
-            allExpenses.push({
-              id: getNextId(),
-              amount: (35 * 3.80).toFixed(2).replace('.', ','),
-              category: 'fuel',
-              fuelType: 'ethanol',
-              date: dateStr,
-              liters: liters,
-              pricePerLiter: '3,80',
-              odometer: currentOdometer.toString(),
-              isFullTank: isFull,
-              notes: notes,
-              status: 'paid'
-            });
-          } else {
-             currentOdometer += 30;
+            if (dist > 0) {
+              const targetKmL = 7.5 + Math.random() * 0.9; // realistic Ethanol KM/L: 7.5 - 8.4
+              const litersVal = dist / targetKmL;
+              const liters = litersVal.toFixed(1).replace('.', ',');
+              const price = 3.80;
+              const amount = (litersVal * price).toFixed(2).replace('.', ',');
+              
+              allExpenses.push({
+                id: getNextId(),
+                amount: amount,
+                category: 'fuel',
+                fuelType: 'ethanol',
+                date: dateStr,
+                liters: liters,
+                pricePerLiter: price.toFixed(2).replace('.', ','),
+                odometer: currentOdometer.toString(),
+                isFullTank: isFull,
+                notes: isFull ? 'Cheio Etanol' : 'Parcial Etanol',
+                status: 'paid'
+              });
+              
+              if (isFull) {
+                lastFillOdometer = currentOdometer;
+              }
+            }
           }
         } else if (m.month === 4) {
           // May: Gasoline + Ethanol Mix (Frequent refills)
-          const fuelDays = [2, 6, 10, 14, 18, 22, 26, 30];
+          const fuelDays = [2, 5, 8, 11, 14, 17, 20, 23, 26, 29];
           if (fuelDays.includes(day)) {
             const isGas = day <= 15;
-            // Liter variations to affect KM/L
-            const litersVal = isGas ? (32 + Math.random() * 8) : (35 + Math.random() * 10);
-            const liters = litersVal.toFixed(1).replace('.', ',');
-            const price = isGas ? 5.65 : 3.85;
             const isFull = true;
+            const dist = currentOdometer - lastFillOdometer;
             
-            // Varied mileage increments between refills
-            const kmSinceLastRefill = isGas ? (380 + Math.random() * 120) : (280 + Math.random() * 80);
-            currentOdometer += Math.floor(kmSinceLastRefill);
-
-            allExpenses.push({
-              id: getNextId(),
-              amount: (litersVal * price).toFixed(2).replace('.', ','),
-              category: 'fuel',
-              fuelType: isGas ? 'gasolineCommon' : 'ethanol',
-              date: dateStr,
-              liters: liters,
-              pricePerLiter: price.toFixed(2).replace('.', ','),
-              odometer: currentOdometer.toString(),
-              isFullTank: isFull,
-              notes: isGas ? 'Gasolina Maio' : 'Etanol Maio',
-              status: 'paid'
-            });
-          } else {
-            currentOdometer += 30 + Math.floor(Math.random() * 20);
+            if (dist > 0) {
+              const targetKmL = isGas ? (10.5 + Math.random() * 1.5) : (7.2 + Math.random() * 1.0);
+              const litersVal = dist / targetKmL;
+              const liters = litersVal.toFixed(1).replace('.', ',');
+              const price = isGas ? 5.65 : 3.85;
+              const amount = (litersVal * price).toFixed(2).replace('.', ',');
+              
+              allExpenses.push({
+                id: getNextId(),
+                amount: amount,
+                category: 'fuel',
+                fuelType: isGas ? 'gasolineCommon' : 'ethanol',
+                date: dateStr,
+                liters: liters,
+                pricePerLiter: price.toFixed(2).replace('.', ','),
+                odometer: currentOdometer.toString(),
+                isFullTank: isFull,
+                notes: isGas ? 'Gasolina Maio' : 'Etanol Maio',
+                status: 'paid'
+              });
+              
+              if (isFull) {
+                lastFillOdometer = currentOdometer;
+              }
+            }
           }
         }
 
-        // 3. Maintenance (Once per month)
-        if (day === 15) {
-          allExpenses.push({
-            id: getNextId(),
-            amount: m.month === 2 ? '450,00' : '120,00',
-            category: 'maintenance',
-            maintenanceType: m.month === 2 ? 'Troca de Óleo e Filtros' : 'Alinhamento e Balanceamento',
-            maintenanceGroup: 'preventive',
-            date: dateStr,
-            notes: `Manutenção preventiva ${m.name}`,
-            status: 'paid'
-          });
+        // 3. Maintenance (Using realistic items, sequential odometers, and subcategories)
+        if (m.month === 2) {
+          // March 2026
+          if (day === 1) {
+            allExpenses.push({
+              id: getNextId(),
+              amount: '280,00',
+              category: 'maintenance',
+              subCategory: 'brakePad',
+              maintenanceType: 'Troca de Pastilhas de Freio',
+              maintenanceGroup: 'preventive',
+              date: dateStr,
+              notes: 'Substituição das pastilhas de freio dianteiras',
+              odometer: '50000',
+              status: 'paid'
+            });
+          } else if (day === 5) {
+            allExpenses.push({
+              id: getNextId(),
+              amount: '350,00',
+              category: 'maintenance',
+              subCategory: 'oilChange',
+              maintenanceType: 'Troca de Óleo e Filtro',
+              maintenanceGroup: 'preventive',
+              date: dateStr,
+              notes: 'Troca de óleo sintético 5W30 e filtro de óleo',
+              odometer: '50200',
+              status: 'paid'
+            });
+          } else if (day === 15) {
+            allExpenses.push({
+              id: getNextId(),
+              amount: '120,00',
+              category: 'maintenance',
+              subCategory: 'alignment',
+              maintenanceType: 'Alinhamento e Balanceamento',
+              maintenanceGroup: 'preventive',
+              date: dateStr,
+              notes: 'Alinhamento 3D e balanceamento das 4 rodas',
+              odometer: '50600',
+              status: 'paid'
+            });
+          }
+        } else if (m.month === 3) {
+          // April 2026
+          if (day === 12) {
+            allExpenses.push({
+              id: getNextId(),
+              amount: '450,00',
+              category: 'maintenance',
+              subCategory: 'revision',
+              maintenanceType: 'Revisão Geral e Check-up',
+              maintenanceGroup: 'preventive',
+              date: dateStr,
+              notes: 'Revisão periódica recomendada da suspensão e motor',
+              odometer: '53500',
+              status: 'paid'
+            });
+          }
+        } else if (m.month === 4) {
+          // May 2026
+          if (day === 10) {
+            allExpenses.push({
+              id: getNextId(),
+              amount: '380,00',
+              category: 'maintenance',
+              subCategory: 'oilChange',
+              maintenanceType: 'Troca de Óleo e Filtro',
+              maintenanceGroup: 'preventive',
+              date: dateStr,
+              notes: 'Troca periódica de óleo de motor e filtro de óleo',
+              odometer: '58500',
+              status: 'paid'
+            });
+          } else if (day === 15) {
+            allExpenses.push({
+              id: getNextId(),
+              amount: '300,00',
+              category: 'maintenance',
+              subCategory: 'brakePad',
+              maintenanceType: 'Troca de Pastilhas de Freio',
+              maintenanceGroup: 'preventive',
+              date: dateStr,
+              notes: 'Substituição das pastilhas de freio traseiras',
+              odometer: '59000',
+              status: 'paid'
+            });
+          } else if (day === 20) {
+            allExpenses.push({
+              id: getNextId(),
+              amount: '130,00',
+              category: 'maintenance',
+              subCategory: 'alignment',
+              maintenanceType: 'Alinhamento e Balanceamento',
+              maintenanceGroup: 'preventive',
+              date: dateStr,
+              notes: 'Alinhamento e balanceamento preventivo',
+              odometer: '60100',
+              status: 'paid'
+            });
+          }
         }
 
         // 4. Random expenses (Parking, Toll)
@@ -753,18 +1238,6 @@ function AppContent() {
             category: 'toll',
             date: dateStr,
             notes: 'Pedágio Rodovia',
-            status: 'paid'
-          });
-        }
-        
-        // Random "surprise" expenses in April/May
-        if ((m.month === 3 || m.month === 4) && (day === 8 || day === 25)) {
-          allExpenses.push({
-            id: getNextId(),
-            amount: (100 + Math.random() * 150).toFixed(2).replace('.', ','),
-            category: 'maintenance',
-            date: dateStr,
-            notes: 'Manutenção Imprevista',
             status: 'paid'
           });
         }
@@ -800,8 +1273,7 @@ function AppContent() {
     // Wash (Weekly)
     const washTemplate: Omit<ExpenseRecord, 'id'> = {
       amount: '60,00',
-      category: 'maintenance',
-      subCategory: 'Lavagem',
+      category: 'washing',
       date: '2026-03-02',
       status: 'paid',
       notes: 'Lavagem Semanal'
@@ -817,17 +1289,202 @@ function AppContent() {
       allExpenses.push({ ...washTemplate, id: getNextId(), date: d });
     });
 
+    // Fixed Income Template (For Planejamentos Financeiros Config list)
+    allIncomes.push({
+      id: getNextId(),
+      date: '2026-03-01',
+      totalAmount: 1200,
+      totalTrips: 0,
+      hoursWorked: '00:00',
+      kmDriven: 0,
+      type: 'fixed',
+      isFixedConfig: true,
+      notes: 'Contrato Fixo Mensal (Empresa X)',
+      recurrence: 'monthly',
+      items: [
+        {
+          id: getNextId(),
+          platform: 'other',
+          amount: '1200,00',
+          trips: '0'
+        }
+      ],
+      status: 'paid'
+    });
+
+    // Real instances of this fixed income in Mar, Apr, May
+    const fixedIncomeDates = ['2026-03-01', '2026-04-01', '2026-05-01'];
+    fixedIncomeDates.forEach(date => {
+      allIncomes.push({
+        id: getNextId(),
+        date,
+        totalAmount: 1200,
+        totalTrips: 0,
+        hoursWorked: '00:00',
+        kmDriven: 0,
+        type: 'fixed',
+        isFixedConfig: false,
+        notes: 'Recebimento de Contrato Fixo',
+        items: [
+          {
+            id: getNextId(),
+            platform: 'other',
+            amount: '1200,00',
+            trips: '0'
+          }
+        ],
+        status: 'paid'
+      });
+    });
+
+    // Fixed Expense Templates (For planejado configs)
+    allExpenses.push({
+      id: getNextId(),
+      amount: '1500,00',
+      category: 'rent',
+      date: '2026-03-01',
+      status: 'paid',
+      notes: 'Aluguel Mensal do Veículo',
+      costType: 'fixed',
+      isFixedConfig: true,
+      recurrence: 'monthly'
+    });
+
+    allExpenses.push({
+      id: getNextId(),
+      amount: '120,00',
+      category: 'internet',
+      date: '2026-03-10',
+      status: 'paid',
+      notes: 'Plano de Dados de Celular',
+      costType: 'fixed',
+      isFixedConfig: true,
+      recurrence: 'monthly'
+    });
+
+    // Add activeVehicleId and driverName to all mock entries so they are not filtered out by selected vehicle
+    const withVehicleIdIncomes = allIncomes.map(item => ({
+      ...item,
+      vehicleId: assignedVehicleId,
+      driverName: defaultDriverName
+    }));
+    const withVehicleIdExpenses = allExpenses.map(item => ({
+      ...item,
+      vehicleId: assignedVehicleId,
+      driverName: defaultDriverName
+    }));
+
+    // Budget & Goals history simulations (goalHistory) for realistic utilization analysis
+    const vId = assignedVehicleId || 'default';
+    const mockGoalHistory: GoalHistory = {
+      [`${vId}_2026-03`]: {
+        id: `${vId}_2026-03`,
+        vehicleId: assignedVehicleId,
+        month: 2, // March (0-indexed is 2)
+        year: 2026,
+        monthly: 5500,
+        daily: 180,
+        weekly: 1300,
+        yearly: 66000,
+        workHours: 8,
+        workDaysPerMonth: 26,
+        categoryBudgets: {
+          fuel: 1100,
+          food: 550,
+          maintenance: 600,
+          toll: 150,
+          parking: 100
+        }
+      },
+      [`${vId}_2026-04`]: {
+        id: `${vId}_2026-04`,
+        vehicleId: assignedVehicleId,
+        month: 3, // April (0-indexed is 3)
+        year: 2026,
+        monthly: 6000,
+        daily: 200,
+        weekly: 1400,
+        yearly: 72000,
+        workHours: 8,
+        workDaysPerMonth: 26,
+        categoryBudgets: {
+          fuel: 1200,
+          food: 600,
+          maintenance: 500,
+          toll: 150,
+          parking: 100
+        }
+      },
+      [`${vId}_2026-05`]: {
+        id: `${vId}_2026-05`,
+        vehicleId: assignedVehicleId,
+        month: 4, // May (0-indexed is 4)
+        year: 2026,
+        monthly: 6500,
+        daily: 220,
+        weekly: 1500,
+        yearly: 78000,
+        workHours: 8,
+        workDaysPerMonth: 26,
+        categoryBudgets: {
+          fuel: 1300,
+          food: 650,
+          maintenance: 500,
+          toll: 150,
+          parking: 100
+        }
+      }
+    };
+
     // Update state
-    setIncomes(allIncomes);
-    setExpenses(allExpenses);
-    setGoal({ monthly: 6000, daily: 200, weekly: 1400, yearly: 72000 });
+    setIncomes(withVehicleIdIncomes);
+    setExpenses(withVehicleIdExpenses);
+    setGoal({ 
+      id: `${vId}_2026-05`, 
+      vehicleId: assignedVehicleId, 
+      month: 4, 
+      year: 2026, 
+      monthly: 6500, 
+      daily: 220, 
+      weekly: 1500, 
+      yearly: 78000, 
+      workHours: 8, 
+      workDaysPerMonth: 26,
+      categoryBudgets: {
+        fuel: 1300,
+        food: 650,
+        maintenance: 500,
+        toll: 150,
+        parking: 100
+      }
+    });
+    setGoalHistory(mockGoalHistory);
 
     // Persist
-    localStorage.setItem('incomes', JSON.stringify(allIncomes));
-    localStorage.setItem('expenses', JSON.stringify(allExpenses));
-    localStorage.setItem('goal', JSON.stringify({ monthly: 6000, daily: 200, weekly: 1400, yearly: 72000 }));
+    localStorage.setItem('incomes', JSON.stringify(withVehicleIdIncomes));
+    localStorage.setItem('expenses', JSON.stringify(withVehicleIdExpenses));
+    localStorage.setItem('goal', JSON.stringify({ 
+      id: `${vId}_2026-05`, 
+      vehicleId: assignedVehicleId, 
+      month: 4, 
+      year: 2026, 
+      monthly: 6500, 
+      daily: 220, 
+      weekly: 1500, 
+      yearly: 78000, 
+      workHours: 8, 
+      workDaysPerMonth: 26,
+      categoryBudgets: {
+        fuel: 1300,
+        food: 650,
+        maintenance: 500,
+        toll: 150,
+        parking: 100
+      }
+    }));
+    localStorage.setItem('goalHistory', JSON.stringify(mockGoalHistory));
 
-    console.log('Mock data loaded for March, April and May 2026.');
+    console.log('Mock data loaded for March, April and May 2026 with vehicle:', assignedVehicleId);
     setCurrentScreen('dashboard');
   };
 
@@ -865,13 +1522,13 @@ function AppContent() {
   };
 
   const filteredIncomes = React.useMemo(() => {
-    if (!activeVehicleId) return incomes;
-    return incomes.filter(i => i.vehicleId === activeVehicleId);
+    const active = activeVehicleId ? incomes.filter(i => i.vehicleId === activeVehicleId) : incomes;
+    return active.filter(i => i.isFixedConfig !== true);
   }, [incomes, activeVehicleId]);
 
   const filteredExpenses = React.useMemo(() => {
-    if (!activeVehicleId) return expenses;
-    return expenses.filter(e => e.vehicleId === activeVehicleId);
+    const active = activeVehicleId ? expenses.filter(e => e.vehicleId === activeVehicleId) : expenses;
+    return active.filter(e => e.isFixedConfig !== true);
   }, [expenses, activeVehicleId]);
 
   const fuelPerformance = React.useMemo(() => {
@@ -894,6 +1551,7 @@ function AppContent() {
           onNavigate={navigateTo} 
           goal={getGoalForPeriod()} 
           onSaveGoal={updateGoalForPeriod}
+          onActiveVehicleChange={setActiveVehicleId}
           userProfile={userProfile!}
           activeVehicleId={activeVehicleId}
           isPrivacyActive={isPrivacyActive}
@@ -926,11 +1584,13 @@ function AppContent() {
           onStartDateChange={setReportsStartDate}
           endDate={reportsEndDate}
           onEndDateChange={setReportsEndDate}
+          activeVehicleId={activeVehicleId}
+          onActiveVehicleChange={setActiveVehicleId}
         />;
       case 'add':
         return <AddSelectionScreen onNavigate={navigateTo} onSmartImport={handleSmartImport} />;
       case 'add-income':
-        return <AddIncomeScreen key={initialData?.id || 'new-income'} onConfirm={addIncome} onNavigate={navigateTo} incomes={filteredIncomes} onDeleteIncome={deleteIncome} platforms={platforms} initialData={initialData} />;
+        return <AddIncomeScreen key={initialData?.id || 'new-income'} onConfirm={addIncome} onNavigate={navigateTo} incomes={filteredIncomes} onDeleteIncome={deleteIncome} platforms={platforms} initialData={initialData} userProfile={userProfile!} />;
       case 'add-expense':
         return <AddExpenseScreen 
           key={initialData?.id || 'new-expense'} 
@@ -947,13 +1607,33 @@ function AppContent() {
           activeVehicleId={activeVehicleId}
         />;
       case 'calculator':
-        return <CalculatorScreen onNavigate={navigateTo} fuelPerformance={fuelPerformance} expenses={filteredExpenses} />;
-      case 'reminders':
-        return <RemindersScreen 
+        return <CalculatorScreen 
+          onNavigate={navigateTo} 
+          fuelPerformance={fuelPerformance} 
+          expenses={filteredExpenses} 
+          userProfile={userProfile!}
+          activeVehicleId={activeVehicleId}
+          onActiveVehicleChange={setActiveVehicleId}
+        />;
+      case 'my-vehicles':
+        return <MyVehiclesScreen 
           userProfile={userProfile!} 
           onSaveProfile={handleUpdateProfile}
-          onNavigate={navigateTo}
           activeVehicleId={activeVehicleId}
+          onActiveVehicleChange={setActiveVehicleId}
+        />;
+      case 'fixed-finance':
+        return <FixedFinanceScreen 
+          expenses={expenses}
+          incomes={incomes}
+          onConfirmExpense={addExpense}
+          onConfirmIncome={addIncome}
+          onDeleteExpense={deleteExpense}
+          onDeleteIncome={deleteIncome}
+          categories={CATEGORIES}
+          userProfile={userProfile!}
+          activeVehicleId={activeVehicleId}
+          onActiveVehicleChange={setActiveVehicleId}
         />;
       case 'help':
         return <HelpScreen />;
@@ -986,6 +1666,9 @@ function AppContent() {
           selectedMonth={dashboardSelectedMonth}
           selectedWeek={dashboardSelectedWeek}
           activeVehicleId={activeVehicleId}
+          onActiveVehicleChange={setActiveVehicleId}
+          onLoadMockData={loadMockData}
+          onClearAllData={clearAllData}
         />;
       default:
         return <DashboardScreen 
@@ -994,6 +1677,7 @@ function AppContent() {
           onNavigate={navigateTo} 
           goal={getGoalForPeriod()} 
           onSaveGoal={updateGoalForPeriod}
+          onActiveVehicleChange={setActiveVehicleId}
           userProfile={userProfile!}
           isPrivacyActive={isPrivacyActive}
           onPrivacyToggle={() => setIsPrivacyActive(!isPrivacyActive)}

@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, 
   Clock, 
@@ -14,19 +15,21 @@ import {
   Car, 
   Calendar as CalendarIcon, 
   Info,
-  Mic,
-  Loader2,
-  Check
+  Truck,
+  Bike,
+  Users,
+  CarTaxiFront,
+  MoreHorizontal,
+  User
 } from 'lucide-react';
-import { IncomeRecord, Screen, Platform } from '../types';
+import { IncomeRecord, Screen, Platform, UserProfile } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { parseLocaleNumber, formatLocaleCurrency } from '../lib/currency';
 import { DatePicker } from '../../components/ui/date-picker';
-import { parseVoiceCommand } from '../services/aiService';
-import { VoiceVisualizer } from './ui/VoiceVisualizer';
 
 const iconMap: Record<string, any> = {
-  TrendingUp, Clock, Route, Timer, CreditCard, Plus, Trash2, CheckCircle, ChevronRight, Edit2, X, Car, Info
+  TrendingUp, Clock, Route, Timer, CreditCard, Plus, Trash2, CheckCircle, ChevronRight, Edit2, X, Car, Info,
+  Truck, Bike, Users, CarTaxiFront, MoreHorizontal
 };
 
 interface AddIncomeScreenProps {
@@ -37,129 +40,101 @@ interface AddIncomeScreenProps {
   platforms: Platform[];
   initialData?: Partial<IncomeRecord> & { isFixedMode?: boolean };
   key?: React.Key;
+  userProfile?: UserProfile;
 }
 
-export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome, platforms, initialData }: AddIncomeScreenProps) {
+export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome, platforms, initialData, userProfile }: AddIncomeScreenProps) {
   const isFixedMode = initialData?.isFixedMode;
   const { t, language } = useLanguage();
   const [date, setDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
+  
+  // Find a suitable default driver name if none is explicitly provided in initialData
+  const defaultDriverName = useMemo(() => {
+    if (initialData?.driverName) return initialData.driverName;
+    if (userProfile?.drivers && userProfile.drivers.length > 0) {
+      const vId = localStorage.getItem('activeVehicleId');
+      const activeVehicle = userProfile?.vehicles?.find(v => v.id === vId);
+      if (activeVehicle?.driverId) {
+        const drv = userProfile.drivers.find(d => d.id === activeVehicle.driverId);
+        if (drv) return drv.name;
+      }
+      return userProfile.drivers[0].name;
+    }
+    return '';
+  }, [initialData, userProfile]);
+
+  const [driverName, setDriverName] = useState(defaultDriverName);
+
+  useEffect(() => {
+    if (!driverName && defaultDriverName) {
+      setDriverName(defaultDriverName);
+    }
+  }, [defaultDriverName]);
+
   const [hoursWorked, setHoursWorked] = useState(initialData?.hoursWorked || '12:00');
-  const [kmDriven, setKmDriven] = useState(initialData?.kmDriven?.toString() || '');
+  
+  const vId = localStorage.getItem('activeVehicleId');
+  const activeVehicle = userProfile?.vehicles?.find(v => v.id === vId);
+  
+  const lastOdometerFromIncomes = useMemo(() => {
+    if (!incomes || incomes.length === 0) return 0;
+    const odos = incomes
+      .map(i => i.endOdometer || i.startOdometer || 0)
+      .filter(o => o > 0);
+    return odos.length > 0 ? Math.max(...odos) : 0;
+  }, [incomes]);
+
+  const lastOdometer = useMemo(() => {
+    const fromProfile = activeVehicle?.currentOdometer || 0;
+    return Math.max(fromProfile, lastOdometerFromIncomes);
+  }, [activeVehicle, lastOdometerFromIncomes]);
+
+  const [startOdometer, setStartOdometer] = useState(
+    initialData?.startOdometer !== undefined && initialData?.startOdometer !== null
+      ? initialData.startOdometer.toString()
+      : ''
+  );
+  const [endOdometer, setEndOdometer] = useState(
+    initialData?.endOdometer !== undefined && initialData?.endOdometer !== null
+      ? initialData.endOdometer.toString()
+      : ''
+  );
+  
+  const computedKmDriven = useMemo(() => {
+    const start = parseFloat(startOdometer);
+    const end = parseFloat(endOdometer);
+    if (!isNaN(start) && !isNaN(end)) {
+      const diff = end - start;
+      return diff >= 0 ? diff : 0;
+    }
+    return 0;
+  }, [startOdometer, endOdometer]);
+
   const [notes, setNotes] = useState(initialData?.notes || '');
-  const [items, setItems] = useState<{ id: number; platform: string; amount: string; trips: string }[]>(
+  const [items, setItems] = useState<{ id: number; platform: string; amount: string; trips: string; subcategory?: string }[]>(
     (initialData?.items as any)?.map((i: any) => ({
       id: i.id,
       platform: i.platform || i.platformId,
       amount: i.amount,
-      trips: i.trips
+      trips: i.trips,
+      subcategory: i.subcategory
     })) || []
   );
   
   const [currentPlatformId, setCurrentPlatformId] = useState(platforms.filter(p => isFixedMode ? p.type === 'fixed' : p.type !== 'fixed')[0]?.id || '');
   const [currentAmount, setCurrentAmount] = useState('0,00');
   const [currentTrips, setCurrentTrips] = useState('');
+  const [currentSubcategory, setCurrentSubcategory] = useState('');
   const [activeField, setActiveField] = useState<'amount' | 'trips' | 'km' | 'hours'>('amount');
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isProcessingVoice, setIsProcessingVoice] = useState(false);
-  const [recognitionInstance, setRecognitionInstance] = useState<any>(null);
-  const [lastTranscript, setLastTranscript] = useState('');
-  const [interimTranscript, setInterimTranscript] = useState('');
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
 
-  const processTranscript = async (transcript: string) => {
-    if (!transcript) return;
-    
-    setIsProcessingVoice(true);
-    try {
-      const data = await parseVoiceCommand(transcript, 'income', []);
-      
-      if (data.amount) setCurrentAmount(formatLocaleCurrency(data.amount, language).replace(t('currencySymbol') + ' ', ''));
-      if (data.platform) {
-        // Find matching platform by ID or name
-        const match = platforms.find(p => p.id === data.platform.toLowerCase() || p.name.toLowerCase().includes(data.platform.toLowerCase()));
-        if (match) setCurrentPlatformId(match.id);
-      }
-      if (data.date) setDate(data.date);
-      if (data.notes) setNotes(data.notes);
-      
-      setShowSuccess(true);
-      setLastTranscript('');
-      setInterimTranscript('');
-      setTimeout(() => setShowSuccess(false), 3000);
-    } catch (error) {
-      console.error('Voice parsing error', error);
-      setErrorAlert(t('voiceError'));
-    } finally {
-      setIsProcessingVoice(false);
-    }
-  };
-
-  const startVoiceCapture = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setErrorAlert(t('speechRecognitionNotSupported'));
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = language === 'pt-BR' ? 'pt-BR' : 'en-US';
-    recognition.interimResults = true;
-    recognition.continuous = true;
-
-    recognition.onstart = () => {
-      setIsRecording(true);
-      setLastTranscript('');
-      setInterimTranscript('');
-    };
-
-    recognition.onresult = (event: any) => {
-      let finalTranscript = '';
-      let interim = '';
-
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
-        } else {
-          interim += event.results[i][0].transcript;
-        }
-      }
-      
-      if (finalTranscript) {
-        setLastTranscript(prev => prev + ' ' + finalTranscript);
-      }
-      setInterimTranscript(interim);
-    };
-
-    recognition.onerror = (event: any) => {
-      console.error('Speech recognition error', event.error);
-      setIsRecording(false);
-      setErrorAlert(t('voiceError'));
-    };
-
-    recognition.onend = () => {
-      // Handled by stopAndConfirm
-    };
-
-    setRecognitionInstance(recognition);
-    recognition.start();
-  };
-
-  const cancelRecording = () => {
-    recognitionInstance?.stop();
-    setIsRecording(false);
-    setLastTranscript('');
-  };
-
-  const stopAndConfirm = () => {
-    recognitionInstance?.stop();
-    setIsRecording(false);
-    if (lastTranscript) {
-      processTranscript(lastTranscript);
-    }
-  };
-  const [type, setType] = useState<'fixed' | 'variable'>(isFixedMode ? 'fixed' : 'variable');
+  const [type, setType] = useState<'fixed' | 'variable'>(
+    initialData?.type === 'fixed' || initialData?.isFixedMode ? 'fixed' : 'variable'
+  );
 
   const formatCurrency = (value: string) => {
     const digits = value.replace(/\D/g, '');
@@ -173,7 +148,7 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
     if (editingItemId !== null) {
       setItems(prev => prev.map(item => 
         item.id === editingItemId 
-          ? { ...item, platform: currentPlatformId, amount: currentAmount, trips: currentTrips }
+          ? { ...item, platform: currentPlatformId, amount: currentAmount, trips: currentTrips, subcategory: currentSubcategory }
           : item
       ));
       setEditingItemId(null);
@@ -182,12 +157,14 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
         id: Date.now(),
         platform: currentPlatformId,
         amount: currentAmount,
-        trips: currentTrips
+        trips: currentTrips,
+        subcategory: currentSubcategory
       }]);
     }
     
     setCurrentAmount('0,00');
     setCurrentTrips('');
+    setCurrentSubcategory('');
   };
 
   const handleEditItem = (id: number) => {
@@ -196,6 +173,7 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
       setCurrentPlatformId(item.platform);
       setCurrentAmount(item.amount);
       setCurrentTrips(item.trips);
+      setCurrentSubcategory(item.subcategory || '');
       setEditingItemId(id);
       setActiveField('amount');
     }
@@ -207,6 +185,7 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
       setEditingItemId(null);
       setCurrentAmount('0,00');
       setCurrentTrips('');
+      setCurrentSubcategory('');
     }
   };
 
@@ -219,18 +198,33 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
     const totalAmount = items.reduce((acc, item) => acc + parseLocaleNumber(item.amount, language), 0);
     const totalTrips = items.reduce((acc, item) => acc + parseInt(item.trips || '0'), 0);
 
+    const isEditingTemplate = initialData && initialData.isFixedConfig === true;
+
     const incomeData: IncomeRecord = {
-      id: initialData?.id || Date.now(),
+      id: isEditingTemplate ? Date.now() : (initialData?.id || Date.now()),
       date,
       hoursWorked,
-      kmDriven: parseInt(kmDriven || '0'),
+      kmDriven: computedKmDriven,
+      startOdometer: startOdometer ? parseInt(startOdometer) : undefined,
+      endOdometer: endOdometer ? parseInt(endOdometer) : undefined,
       notes,
       items,
       totalAmount,
       totalTrips,
       type,
+      driverName: driverName || undefined,
       status: 'paid',
+      recurrence: initialData?.recurrence || (type === 'fixed' ? 'monthly' : undefined),
+      isFixedConfig: false,
+      hiddenInHistory: false
     };
+
+    if (isEditingTemplate && initialData?.id) {
+      const templateItem = incomes.find(i => i.id === initialData.id);
+      if (templateItem) {
+        onConfirm({ ...templateItem, hiddenInHistory: true });
+      }
+    }
 
     onConfirm(incomeData);
     setShowSuccess(true);
@@ -243,21 +237,43 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
         setItems([]);
         setCurrentAmount('0,00');
         setCurrentTrips('');
-        setKmDriven('');
+        setStartOdometer('');
+        setEndOdometer('');
         setNotes('');
+        setDriverName('');
       } else {
         // If it was an edit, maybe go back to dashboard or reports?
-        // User said "Mantenha a tela ainda em registrar ganho após a pessoa fazer um registro"
-        // referring to making multiple entries. So clearing for new entries is good.
         setItems([]);
-        setKmDriven('');
+        setStartOdometer('');
+        setEndOdometer('');
         setNotes('');
+        setDriverName('');
         onNavigate('add-income'); // Reset editing state
       }
     }, 2000);
   };
 
   const totalAccumulated = items.reduce((acc, item) => acc + parseLocaleNumber(item.amount, language), 0);
+
+  if (!userProfile?.vehicles || userProfile.vehicles.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 px-6 text-center max-w-sm mx-auto space-y-6">
+        <div className="p-5 bg-error/10 text-error rounded-3xl animate-bounce">
+          <Car size={48} />
+        </div>
+        <h2 className="text-2xl font-black font-headline text-on-surface">Nenhum Veículo Cadastrado</h2>
+        <p className="text-sm font-medium text-on-surface-variant leading-relaxed">
+          Você precisa ter pelo menos um veículo cadastrado para cadastrar ganhos ou gastos.
+        </p>
+        <button
+          onClick={() => onNavigate('my-vehicles')}
+          className="w-full py-4 bg-primary text-on-primary font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-primary/20 hover:scale-[0.98] transition-all cursor-pointer"
+        >
+          Cadastrar Veículo
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-10 pb-20">
@@ -302,82 +318,82 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
           <section>
             <label className="block text-xs font-bold text-on-surface-variant mb-4 uppercase tracking-wider">{t('selectPlatform')}</label>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-              {[...platforms].sort((a, b) => {
-                if (a.type === b.type) return 0;
-                return a.type === 'fixed' ? -1 : 1;
-              }).map((platform) => {
-                const isSelected = currentPlatformId === platform.id;
-                const Icon = (platform && iconMap[platform.icon]) ? iconMap[platform.icon] : Car;
-                
-                // Helper to get platform specific colors
-                const getPlatformColors = () => {
-                  const color = platform.color || 'primary';
-                  const colorMap: Record<string, { container: string, iconBg: string, text: string }> = {
-                    'green-600': { container: isSelected ? 'bg-green-600/20 border-green-600 shadow-md scale-105' : 'bg-green-600/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-green-600 text-white', text: 'text-green-700 dark:text-green-400' },
-                    'blue-500': { container: isSelected ? 'bg-blue-500/20 border-blue-500 shadow-md scale-105' : 'bg-blue-500/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-blue-500 text-white', text: 'text-blue-700 dark:text-blue-400' },
-                    'neutral-200': { container: isSelected ? 'bg-neutral-200/30 border-neutral-400 shadow-md scale-105' : 'bg-neutral-200/10 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-neutral-400 text-white', text: 'text-neutral-700 dark:text-neutral-300' },
-                    'yellow-500': { container: isSelected ? 'bg-yellow-500/20 border-yellow-500 shadow-md scale-105' : 'bg-yellow-500/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-yellow-500 text-black', text: 'text-yellow-700 dark:text-yellow-400' },
-                    'orange-600': { container: isSelected ? 'bg-orange-600/20 border-orange-600 shadow-md scale-105' : 'bg-orange-600/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-orange-600 text-white', text: 'text-orange-700 dark:text-orange-400' },
-                    'red-600': { container: isSelected ? 'bg-red-600/20 border-red-600 shadow-md scale-105' : 'bg-red-600/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-red-600 text-white', text: 'text-red-700 dark:text-red-400' },
-                    'yellow-300': { container: isSelected ? 'bg-yellow-300/20 border-yellow-400 shadow-md scale-105' : 'bg-yellow-300/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-yellow-300 text-black', text: 'text-yellow-700 dark:text-yellow-400' },
-                    'orange-500': { container: isSelected ? 'bg-orange-500/20 border-orange-500 shadow-md scale-105' : 'bg-orange-500/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-orange-500 text-white', text: 'text-orange-700 dark:text-orange-400' },
-                    'blue-400': { container: isSelected ? 'bg-blue-400/20 border-blue-400 shadow-md scale-105' : 'bg-blue-400/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-blue-400 text-white', text: 'text-blue-700 dark:text-blue-400' },
-                    'purple-600': { container: isSelected ? 'bg-purple-600/20 border-purple-600 shadow-md scale-105' : 'bg-purple-600/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-purple-600 text-white', text: 'text-purple-700 dark:text-purple-400' },
-                    'yellow-600': { container: isSelected ? 'bg-yellow-600/20 border-yellow-600 shadow-md scale-105' : 'bg-yellow-600/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-yellow-600 text-white', text: 'text-yellow-700 dark:text-yellow-400' },
-                    'yellow-400': { container: isSelected ? 'bg-yellow-400/20 border-yellow-400 shadow-md scale-105' : 'bg-yellow-400/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-yellow-400 text-black', text: 'text-yellow-700 dark:text-yellow-400' },
-                    'black': { container: isSelected ? 'bg-black/10 border-black shadow-md scale-105' : 'bg-black/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-black text-white', text: 'text-black dark:text-white' },
-                    'pink-500': { container: isSelected ? 'bg-pink-500/20 border-pink-500 shadow-md scale-105' : 'bg-pink-500/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-pink-500 text-white', text: 'text-pink-700 dark:text-pink-400' },
-                    'primary': { container: isSelected ? 'bg-primary/20 border-primary shadow-md scale-105' : 'bg-primary/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-primary text-white', text: 'text-primary' },
-                    'blue-600': { container: isSelected ? 'bg-blue-600/20 border-blue-600 shadow-md scale-105' : 'bg-blue-600/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-blue-600 text-white', text: 'text-blue-700 dark:text-blue-400' },
-                    'orange-400': { container: isSelected ? 'bg-orange-400/20 border-orange-400 shadow-md scale-105' : 'bg-orange-400/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-orange-400 text-white', text: 'text-orange-700 dark:text-orange-400' },
-                  };
+              {(() => {
+                const seenNames = new Set<string>();
+                return platforms
+                  .filter(p => p.type === 'variable')
+                  .filter(platform => {
+                    const nameKey = platform.isDefault ? t(platform.id) : platform.name;
+                    const normalizedName = nameKey.toLowerCase().trim();
+                    if (seenNames.has(normalizedName)) {
+                      return false;
+                    }
+                    seenNames.add(normalizedName);
+                    return true;
+                  })
+                  .map((platform) => {
+                    const isSelected = currentPlatformId === platform.id;
+                    const Icon = (platform && iconMap[platform.icon]) ? iconMap[platform.icon] : Car;
+                    
+                    // Helper to get platform specific colors
+                    const getPlatformColors = () => {
+                      const color = platform.color || 'primary';
+                      const colorMap: Record<string, { container: string, iconBg: string, text: string }> = {
+                        'green-600': { container: isSelected ? 'bg-green-600/20 border-green-600 shadow-md scale-105' : 'bg-green-600/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-green-600 text-white', text: 'text-green-700 dark:text-green-400' },
+                        'blue-500': { container: isSelected ? 'bg-blue-500/20 border-blue-500 shadow-md scale-105' : 'bg-blue-500/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-blue-500 text-white', text: 'text-blue-700 dark:text-blue-400' },
+                        'neutral-200': { container: isSelected ? 'bg-neutral-200/30 border-neutral-400 shadow-md scale-105' : 'bg-neutral-200/10 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-neutral-400 text-white', text: 'text-neutral-700 dark:text-neutral-300' },
+                        'yellow-500': { container: isSelected ? 'bg-yellow-500/20 border-yellow-500 shadow-md scale-105' : 'bg-yellow-500/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-yellow-500 text-black', text: 'text-yellow-700 dark:text-yellow-400' },
+                        'orange-600': { container: isSelected ? 'bg-orange-600/20 border-orange-600 shadow-md scale-105' : 'bg-orange-600/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-orange-600 text-white', text: 'text-orange-700 dark:text-orange-400' },
+                        'red-600': { container: isSelected ? 'bg-red-600/20 border-red-600 shadow-md scale-105' : 'bg-red-600/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-red-600 text-white', text: 'text-red-700 dark:text-red-400' },
+                        'yellow-300': { container: isSelected ? 'bg-yellow-300/20 border-yellow-400 shadow-md scale-105' : 'bg-yellow-300/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-yellow-300 text-black', text: 'text-yellow-700 dark:text-yellow-400' },
+                        'orange-500': { container: isSelected ? 'bg-orange-500/20 border-orange-500 shadow-md scale-105' : 'bg-orange-500/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-orange-500 text-white', text: 'text-orange-700 dark:text-orange-400' },
+                        'blue-400': { container: isSelected ? 'bg-blue-400/20 border-blue-400 shadow-md scale-105' : 'bg-blue-400/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-blue-400 text-white', text: 'text-blue-700 dark:text-blue-400' },
+                        'purple-600': { container: isSelected ? 'bg-purple-600/20 border-purple-600 shadow-md scale-105' : 'bg-purple-600/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-purple-600 text-white', text: 'text-purple-700 dark:text-purple-400' },
+                        'yellow-600': { container: isSelected ? 'bg-yellow-600/20 border-yellow-600 shadow-md scale-105' : 'bg-yellow-600/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-yellow-600 text-white', text: 'text-yellow-700 dark:text-yellow-400' },
+                        'yellow-400': { container: isSelected ? 'bg-yellow-400/20 border-yellow-400 shadow-md scale-105' : 'bg-yellow-400/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-yellow-400 text-black', text: 'text-yellow-700 dark:text-yellow-400' },
+                        'black': { container: isSelected ? 'bg-black/10 border-black shadow-md scale-105' : 'bg-black/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-black text-white', text: 'text-black dark:text-white' },
+                        'pink-500': { container: isSelected ? 'bg-pink-500/20 border-pink-500 shadow-md scale-105' : 'bg-pink-500/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-pink-500 text-white', text: 'text-pink-700 dark:text-pink-400' },
+                        'primary': { container: isSelected ? 'bg-primary/20 border-primary shadow-md scale-105' : 'bg-primary/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-primary text-white', text: 'text-primary' },
+                        'blue-600': { container: isSelected ? 'bg-blue-600/20 border-blue-600 shadow-md scale-105' : 'bg-blue-600/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-blue-600 text-white', text: 'text-blue-700 dark:text-blue-400' },
+                        'orange-400': { container: isSelected ? 'bg-orange-400/20 border-orange-400 shadow-md scale-105' : 'bg-orange-400/5 border-transparent opacity-70 hover:opacity-100', iconBg: 'bg-orange-400 text-white', text: 'text-orange-700 dark:text-orange-400' },
+                      };
 
-                  return colorMap[color] || colorMap['primary'];
-                };
+                      return colorMap[color] || colorMap['primary'];
+                    };
 
-                const styles = getPlatformColors();
-                
-                return (
-                  <button
-                    key={platform.id}
-                    onClick={() => {
-                      setCurrentPlatformId(platform.id);
-                      if (platform.type === 'fixed') {
-                        setType('fixed');
-                        if (platform.defaultAmount !== undefined) {
-                          setCurrentAmount(formatLocaleCurrency(platform.defaultAmount, language).replace(t('currencySymbol') + ' ', ''));
-                        } else {
+                    const styles = getPlatformColors();
+                    
+                    return (
+                      <button
+                        key={platform.id}
+                        onClick={() => {
+                          setCurrentPlatformId(platform.id);
+                          setType('variable');
                           setCurrentAmount('0,00');
-                        }
-                      } else {
-                        setType('variable');
-                        setCurrentAmount('0,00');
-                      }
-                    }}
-                    className={`flex flex-col items-center justify-center p-3 border-2 rounded-xl transition-all group relative overflow-hidden ${styles.container}`}
-                  >
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-colors ${styles.iconBg}`}>
-                      {platform.isDefault ? (
-                        (platform.id === 'uberblack' || platform.id === 'uberx' || platform.id === 'ubercomfort' || platform.id === 'uberbag') ? <span className="font-black text-xs italic">U</span> :
-                        (platform.id === '99taxi' || platform.id === '99top' || platform.id === '99pop') ? <span className="font-black text-xs">99</span> :
-                        platform.id === 'maxim' ? <span className="font-black text-xs">M</span> :
-                        platform.id === 'rappi' ? <span className="font-black text-xs">R</span> :
-                        platform.id === 'james' ? <span className="font-black text-xs">J</span> :
-                        platform.id === 'cabify' ? <span className="font-black text-xs">C</span> :
-                        platform.id === 'ladydriver' ? <span className="font-black text-xs">L</span> :
-                        platform.id === 'sity' ? <span className="font-black text-xs">S</span> :
-                        platform.id === 'wappa' ? <span className="font-black text-xs">W</span> :
-                        <Icon size={20} />
-                      ) : (
-                        <Icon size={20} />
-                      )}
-                    </div>
-                    <span className={`text-[10px] font-bold text-center leading-tight ${styles.text}`}>
-                      {platform.isDefault ? t(platform.id) : platform.name}
-                    </span>
-                  </button>
-                );
-              })}
+                          setCurrentSubcategory('');
+                        }}
+                        className={`flex flex-col items-center justify-center p-3 border-2 rounded-xl transition-all group relative overflow-hidden ${styles.container}`}
+                      >
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-colors ${styles.iconBg}`}>
+                          {platform.isDefault ? (
+                            (platform.id === 'uber' || platform.id === 'uberblack' || platform.id === 'uberx' || platform.id === 'ubercomfort' || platform.id === 'uberbag') ? <span className="font-black text-xs italic">U</span> :
+                            (platform.id === '99' || platform.id === '99taxi' || platform.id === '99top' || platform.id === '99pop') ? <span className="font-black text-xs">99</span> :
+                            platform.id === 'maxim' ? <span className="font-black text-xs">M</span> :
+                            platform.id === 'rappi' ? <span className="font-black text-xs">R</span> :
+                            platform.id === 'ladydriver' ? <span className="font-black text-xs">L</span> :
+                            platform.id === 'wappa' ? <span className="font-black text-xs">W</span> :
+                            <Icon size={20} />
+                          ) : (
+                            <Icon size={20} />
+                          )}
+                        </div>
+                        <span className={`text-[10px] font-bold text-center leading-tight ${styles.text}`}>
+                          {platform.isDefault ? t(platform.id) : platform.name}
+                        </span>
+                      </button>
+                    );
+                  });
+              })()}
             </div>
           </section>
 
@@ -415,58 +431,7 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
                       setCurrentAmount(formatCurrency(val));
                     }}
                   />
-                  {isRecording ? (
-                    <div className="flex-1 flex flex-col items-center gap-3 bg-secondary/5 rounded-3xl p-4 border border-secondary/20 shadow-inner animate-in fade-in zoom-in duration-300">
-                      <div className="w-full flex items-center gap-4">
-                        <button 
-                          onClick={cancelRecording}
-                          className="p-3 bg-error/10 text-error rounded-full hover:bg-error/20 transition-all active:scale-90 shadow-sm"
-                          title={t('cancel')}
-                        >
-                          <Trash2 size={24} />
-                        </button>
-                        
-                        <div className="flex-1 overflow-hidden">
-                          <VoiceVisualizer isRecording={isRecording} />
-                        </div>
-                        
-                        <button 
-                          onClick={stopAndConfirm}
-                          className="p-3 bg-secondary text-on-secondary rounded-full hover:shadow-lg hover:shadow-secondary/30 transition-all active:scale-90 shadow-md ring-4 ring-secondary/20"
-                          title={t('confirm')}
-                        >
-                          <Check size={28} className="font-black" />
-                        </button>
-                      </div>
-                      
-                      <div className="w-full min-h-[40px] px-2 text-center">
-                        <p className="text-xs text-secondary/70 italic leading-relaxed line-clamp-2">
-                          {lastTranscript}
-                          <span className="text-secondary opacity-50">{interimTranscript}</span>
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <button 
-                      className={`p-3 rounded-full transition-all active:scale-95 flex items-center justify-center shrink-0 shadow-sm ${
-                        isProcessingVoice 
-                          ? 'bg-neutral-200 text-neutral-500' 
-                          : 'bg-primary/10 text-primary hover:bg-primary/20'
-                      }`}
-                      disabled={isProcessingVoice}
-                      title={t('voiceCapture')}
-                      onClick={startVoiceCapture}
-                    >
-                      {isProcessingVoice ? <Loader2 size={28} className="animate-spin" /> : <Mic size={28} />}
-                    </button>
-                  )}
                 </div>
-                {isRecording && (
-                  <p className="mt-2 text-[10px] font-black text-secondary animate-pulse uppercase tracking-[0.2em] text-center">{t('recording')}</p>
-                )}
-                {isProcessingVoice && (
-                  <p className="mt-2 text-[10px] font-black text-neutral-400 animate-pulse uppercase tracking-widest">{t('processingVoice')}</p>
-                )}
               </div>
 
               <div className={`space-y-1 border-b-2 transition-colors pb-1 ${activeField === 'trips' ? 'border-primary' : 'border-outline-variant/30'}`}>
@@ -492,6 +457,36 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
               </div>
             </div>
 
+            {(() => {
+              const selectedPlatform = platforms.find(p => p.id === currentPlatformId);
+              if (!selectedPlatform || !selectedPlatform.subcategories || selectedPlatform.subcategories.length === 0) return null;
+              
+              return (
+                <div className="space-y-2 pt-2 border-t border-outline-variant/10">
+                  <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Subcategoria</label>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPlatform.subcategories.map(sub => {
+                      const isSubSelected = currentSubcategory === sub;
+                      return (
+                        <button
+                          key={sub}
+                          type="button"
+                          onClick={() => setCurrentSubcategory(isSubSelected ? '' : sub)}
+                          className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                            isSubSelected 
+                              ? 'bg-primary text-on-primary border-primary shadow-sm scale-102' 
+                              : 'bg-surface-container-low text-on-surface-variant border-outline-variant/35 hover:bg-surface-container-high'
+                          }`}
+                        >
+                          {sub}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             <button 
               onClick={handleAddItem}
               disabled={currentAmount === '0,00' || currentAmount === '0'}
@@ -516,53 +511,155 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">{t('hoursWorked')}</label>
-                  <div className="relative">
-                    <Timer className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40" size={18} />
-                    <input 
-                      className="w-full bg-surface-container-low border-none rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-on-surface focus:ring-2 focus:ring-primary/20" 
-                      type="time"
-                      value={hoursWorked}
-                      onChange={(e) => setHoursWorked(e.target.value)}
-                    />
-                  </div>
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">{t('hoursWorked')}</label>
+                <div className="relative">
+                  <Timer className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40" size={18} />
+                  <input 
+                    className="w-full bg-surface-container-low border-none rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-on-surface focus:ring-2 focus:ring-primary/20" 
+                    type="time"
+                    value={hoursWorked}
+                    onChange={(e) => setHoursWorked(e.target.value)}
+                  />
                 </div>
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">{t('kmDriven')}</label>
-                  <div className={`relative border-b-2 transition-colors ${activeField === 'km' ? 'border-primary' : 'border-outline-variant/30'}`}>
-                    <Route className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40" size={18} />
-                    <input 
-                      className="w-full bg-surface-container-low border-none rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-on-surface focus:ring-2 focus:ring-primary/20 placeholder:italic" 
-                      type="text"
-                      inputMode="numeric"
-                      value={kmDriven}
-                      placeholder="ex: 400 km"
-                      onFocus={(e) => {
-                        setActiveField('km');
-                        e.target.placeholder = '';
-                      }}
-                      onBlur={(e) => {
-                        if (kmDriven === '') e.target.placeholder = 'ex: 400 km';
-                      }}
-                      onChange={(e) => setKmDriven(e.target.value.replace(/\D/g, ''))}
-                    />
+                {lastOdometer > 0 && (
+                  <div className="flex items-center gap-2 mt-4 pt-2 border-t border-outline-variant/10">
+                    <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
+                      {language === 'pt-BR' ? 'Último Odômetro:' : 'Last Odometer:'}
+                    </span>
+                    <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-md text-[10px] font-black uppercase tracking-wider">
+                      {lastOdometer.toLocaleString(language)} KM
+                    </span>
                   </div>
-                </div>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">{t('notes')}</label>
-                <textarea 
-                  className="w-full bg-surface-container-low border-none rounded-xl p-4 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 min-h-[100px] resize-none" 
-                  placeholder={t('notesPlaceholder')}
-                  value={notes}
-                  onFocus={(e) => e.target.placeholder = ''}
-                  onBlur={(e) => e.target.placeholder = t('notesPlaceholder')}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
+              {/* More Options Button */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowMoreOptions(prev => !prev)}
+                  className="w-full py-2.5 px-4 bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-between transition-all border border-outline-variant/10"
+                >
+                  <span className="flex items-center gap-2">
+                    <MoreHorizontal size={16} className="text-primary" />
+                    {language === 'pt-BR' ? 'Mais Opções' : 'More Options'}
+                  </span>
+                  <ChevronRight size={16} className={`transition-transform duration-200 ${showMoreOptions ? 'rotate-90' : ''}`} />
+                </button>
               </div>
+
+              <AnimatePresence initial={false}>
+                {showMoreOptions && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden space-y-4"
+                  >
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">{language === 'pt-BR' ? 'Odômetro Inicial' : 'Start Odometer'}</label>
+                        </div>
+                        <div className={`relative border-b-2 transition-colors ${activeField === 'km' ? 'border-primary' : 'border-outline-variant/30'}`}>
+                          <Route className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40" size={18} />
+                          <input 
+                            className="w-full bg-surface-container-low border-none rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-on-surface focus:ring-2 focus:ring-primary/20 placeholder:italic" 
+                            type="text"
+                            inputMode="numeric"
+                            value={startOdometer}
+                            placeholder={language === 'pt-BR' ? 'Km inicial' : 'Start km'}
+                            onFocus={() => setActiveField('km')}
+                            onChange={(e) => setStartOdometer(e.target.value.replace(/\D/g, ''))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">{language === 'pt-BR' ? 'Odômetro Final' : 'End Odometer'}</label>
+                        <div className={`relative border-b-2 transition-colors ${activeField === 'km' ? 'border-primary' : 'border-outline-variant/30'}`}>
+                          <Route className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40" size={18} />
+                          <input 
+                            className="w-full bg-surface-container-low border-none rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-on-surface focus:ring-2 focus:ring-primary/20 placeholder:italic" 
+                            type="text"
+                            inputMode="numeric"
+                            value={endOdometer}
+                            placeholder={language === 'pt-BR' ? 'Km final' : 'End km'}
+                            onFocus={() => setActiveField('km')}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              setEndOdometer(val);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Calculated distance display (ballon) */}
+                    <div className="flex items-center justify-between p-3.5 bg-primary/5 rounded-xl border border-primary/10">
+                      <div className="flex items-center gap-2">
+                        <Route size={18} className="text-primary" />
+                        <span className="text-xs font-bold text-on-surface-variant">{language === 'pt-BR' ? 'KM Rodados no Dia' : 'KM Driven in the Day'}</span>
+                      </div>
+                      <span className="text-sm font-black text-primary bg-primary/10 px-3 py-1 rounded-full">
+                        {computedKmDriven} KM
+                      </span>
+                    </div>
+
+                    {/* Condutor is placed BELOW KM Rodados display balloon as requested */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">{language === 'pt-BR' ? 'Condutor' : 'Driver'}</label>
+                      {(userProfile?.drivers || []).length > 0 ? (
+                        <select
+                          className="w-full bg-surface-container-low border-b-2 border-outline-variant/30 rounded-xl p-3 text-sm font-bold text-on-surface focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+                          value={driverName}
+                          onChange={(e) => setDriverName(e.target.value)}
+                        >
+                          <option value=""></option>
+                          {(userProfile?.drivers || []).map(drv => (
+                            <option key={drv.id} value={drv.name}>
+                              {drv.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onNavigate('my-vehicles')}
+                          className="w-full bg-surface-container-low border-b-2 border-outline-variant/30 rounded-xl p-3 text-sm font-bold text-left text-primary hover:bg-primary/5 focus:ring-2 focus:ring-primary/20 transition-all outline-none flex justify-between items-center"
+                        >
+                          <span>
+                            {language === 'pt-BR' 
+                              ? 'Nenhum condutor cadastrado. Clique para cadastrar' 
+                              : 'No drivers registered. Click to register'}
+                          </span>
+                          <span className="text-xs bg-primary/10 px-2 py-0.5 rounded-full font-black uppercase text-primary">
+                            {language === 'pt-BR' ? 'Cadastrar' : 'Register'}
+                          </span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">{t('notes')}</label>
+                        <span className="text-[10px] font-bold text-on-surface-variant/60">{notes.length}/300</span>
+                      </div>
+                      <textarea 
+                        className="w-full bg-surface-container-low border-none rounded-xl p-4 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 min-h-[100px] resize-none" 
+                        placeholder={t('notesPlaceholder')}
+                        maxLength={300}
+                        value={notes}
+                        onFocus={(e) => e.target.placeholder = ''}
+                        onBlur={(e) => e.target.placeholder = t('notesPlaceholder')}
+                        onChange={(e) => setNotes(e.target.value.slice(0, 300))}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </section>
 
@@ -581,10 +678,9 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
                   <div key={item.id} className="flex items-center justify-between p-3 bg-surface-container-lowest rounded-xl border-l-4 shadow-sm" style={{ borderLeftColor: platform?.color || '#cbd5e1' }}>
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        (item.platform === 'uberblack' || item.platform === 'uberx' || item.platform === 'ubercomfort' || item.platform === 'uberbag') ? 'bg-black' : 
-                        item.platform === '99pop' ? 'bg-yellow-400' :
+                        (item.platform === 'uber' || item.platform === 'uberblack' || item.platform === 'uberx' || item.platform === 'ubercomfort' || item.platform === 'uberbag') ? 'bg-black' : 
+                        (item.platform === '99' || item.platform === '99pop') ? 'bg-yellow-400' :
                         item.platform === 'ladydriver' ? 'bg-pink-500' :
-                        item.platform === 'sity' ? 'bg-blue-600' :
                         item.platform === 'wappa' ? 'bg-orange-400' :
                         item.platform === '99taxi' ? 'bg-yellow-500' :
                         item.platform === '99top' ? 'bg-yellow-600' :
@@ -595,18 +691,17 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
                         item.platform === 'ifood' ? 'bg-red-600' :
                         item.platform === 'maxim' ? 'bg-yellow-300' :
                         item.platform === 'rappi' ? 'bg-orange-500' :
-                        item.platform === 'james' ? 'bg-blue-400' :
-                        item.platform === 'cabify' ? 'bg-purple-600' : 'bg-neutral-200'
+                        item.platform === 'bonus' ? 'bg-emerald-600' :
+                        item.platform === 'tips' ? 'bg-amber-500' :
+                        item.platform === 'lalamove' ? 'bg-orange-500' :
+                        item.platform === 'loggi' ? 'bg-sky-600' : 'bg-neutral-200'
                       }`}>
                         {platform?.isDefault ? (
-                          (item.platform === 'uberblack' || item.platform === 'uberx' || item.platform === 'ubercomfort' || item.platform === 'uberbag') ? <span className="text-white font-black text-xs italic">U</span> :
-                          (item.platform === '99taxi' || item.platform === '99top' || item.platform === '99pop') ? <span className="text-black font-black text-xs">99</span> :
+                          (item.platform === 'uber' || item.platform === 'uberblack' || item.platform === 'uberx' || item.platform === 'ubercomfort' || item.platform === 'uberbag') ? <span className="text-white font-black text-xs italic">U</span> :
+                          (item.platform === '99' || item.platform === '99taxi' || item.platform === '99top' || item.platform === '99pop') ? <span className="text-black font-black text-xs">99</span> :
                           item.platform === 'maxim' ? <span className="text-black font-black text-xs">M</span> :
                           item.platform === 'rappi' ? <span className="text-white font-black text-xs">R</span> :
-                          item.platform === 'james' ? <span className="text-white font-black text-xs">J</span> :
-                          item.platform === 'cabify' ? <span className="text-white font-black text-xs">C</span> :
                           item.platform === 'ladydriver' ? <span className="text-white font-black text-xs">L</span> :
-                          item.platform === 'sity' ? <span className="text-white font-black text-xs">S</span> :
                           item.platform === 'wappa' ? <span className="text-white font-black text-xs">W</span> :
                           <Icon size={14} className="text-white" />
                         ) : (
@@ -615,7 +710,10 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
                       </div>
                       <div>
                         <p className="text-sm font-bold text-on-surface">{platform?.isDefault ? t(item.platform) : platform?.name}</p>
-                        <p className="text-[10px] font-medium text-on-surface-variant">{item.trips} {t('tripsLower')}</p>
+                        <p className="text-[10px] font-medium text-on-surface-variant">
+                          {item.trips} {t('tripsLower')}
+                          {item.subcategory && ` • ${item.subcategory}`}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -667,13 +765,13 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-black text-on-surface-variant uppercase tracking-widest">{t('recentHistory')}</h3>
               <span className="bg-secondary/10 text-secondary text-[10px] font-black px-2 py-0.5 rounded-full">
-                {incomes.filter(i => i.type !== 'fixed').length} {t('records')}
+                {incomes.filter(i => i.hiddenInHistory !== true).length} {t('records')}
               </span>
             </div>
 
             <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
               {incomes
-                .filter(i => i.type !== 'fixed')
+                .filter(i => i.hiddenInHistory !== true)
                 .sort((a, b) => {
                   const dateA = new Date(a.date + 'T12:00:00').getTime();
                   const dateB = new Date(b.date + 'T12:00:00').getTime();
@@ -689,8 +787,19 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
                             <TrendingUp size={20} />
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-on-surface-variant uppercase">
-                              {new Date(item.date + 'T12:00:00').toLocaleDateString(language, { day: '2-digit', month: 'short', year: 'numeric' })}
+                            <p className="text-xs font-bold text-on-surface-variant uppercase flex flex-wrap items-center gap-1.5">
+                              <span>{new Date(item.date + 'T12:00:00').toLocaleDateString(language, { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                              {item.type === 'fixed' && (
+                                <span className="px-1.5 py-0.5 bg-secondary/20 text-secondary rounded text-[8px] font-black uppercase tracking-wider">
+                                  {t('fixedIncomeLabel')}
+                                </span>
+                              )}
+                              {item.driverName && (
+                                <span className="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-[8px] font-black uppercase tracking-wider flex items-center gap-1">
+                                  <User size={10} className="shrink-0 text-primary" />
+                                  <span>{item.driverName}</span>
+                                </span>
+                              )}
                             </p>
                             <p className="font-black text-secondary text-lg leading-tight">{t('currencySymbol')} {formatLocaleCurrency(item.totalAmount, language)}</p>
                           </div>
@@ -704,7 +813,9 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
                             <Edit2 size={16} />
                           </button>
                           <button 
-                            onClick={() => onDeleteIncome(item.id)}
+                            onClick={() => {
+                              setDeleteConfirmId(item.id);
+                            }}
                             className="p-1.5 text-error hover:bg-error/10 rounded-lg transition-colors"
                             title={t('delete')}
                           >
@@ -741,7 +852,9 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
                               className="px-2 py-0.5 bg-secondary/5 rounded border border-secondary/10 flex items-center gap-1.5"
                             >
                               <span className="text-sm font-black text-secondary">
-                                {platform?.isDefault ? t(platform.id) : platform?.name || entry.platform}
+                                {platform?.subcategories && platform.subcategories.length > 0 && entry.subcategory
+                                  ? entry.subcategory
+                                  : (platform?.isDefault ? t(platform.id) : platform?.name || entry.platform)}
                               </span>
                               <div className="w-[1px] h-3 bg-secondary/20" />
                               <span className="text-sm font-bold text-on-surface">
@@ -769,6 +882,66 @@ export function AddIncomeScreen({ onConfirm, onNavigate, incomes, onDeleteIncome
           </div>
         </div>
       </div>
+
+      {/* Custom Confirmation Modal for Safe Deletion inside iFrames */}
+      <AnimatePresence>
+        {deleteConfirmId !== null && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeleteConfirmId(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-md bg-surface-container-highest rounded-3xl p-6 shadow-2xl border border-outline-variant/20 overflow-hidden"
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-error/10 rounded-2xl flex items-center justify-center text-error shrink-0">
+                  <Trash2 size={24} />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-black font-headline text-on-surface">
+                    {t('delete') || 'Excluir Registro'}
+                  </h3>
+                  <p className="text-sm font-medium text-on-surface-variant leading-relaxed">
+                    {t('confirmDelete') || 'Tem certeza que deseja excluir este registro?'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-8">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="px-5 py-3 rounded-2xl text-sm font-black text-on-surface-variant hover:bg-surface-container/80 transition-all uppercase tracking-wider"
+                >
+                  {t('cancel') || 'Cancelar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const incomeToHandle = incomes.find(i => i.id === deleteConfirmId);
+                    if (incomeToHandle && incomeToHandle.isFixedConfig) {
+                      onConfirm({ ...incomeToHandle, hiddenInHistory: true });
+                    } else {
+                      onDeleteIncome(deleteConfirmId!);
+                    }
+                    setDeleteConfirmId(null);
+                  }}
+                  className="px-6 py-3 bg-error text-white rounded-2xl text-sm font-black hover:bg-error-container hover:shadow-lg hover:shadow-error/10 transition-all uppercase tracking-wider"
+                >
+                  {t('delete') || 'Excluir'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-export type Screen = 'login' | 'signup' | 'dashboard' | 'reports' | 'add' | 'settings' | 'add-income' | 'add-expense' | 'calculator' | 'reminders' | 'admin' | 'help';
+export type Screen = 'login' | 'signup' | 'dashboard' | 'reports' | 'add' | 'settings' | 'add-income' | 'add-expense' | 'calculator' | 'reminders' | 'admin' | 'help' | 'my-vehicles' | 'fixed-finance';
 
 export type TransactionStatus = 'paid';
 
@@ -7,6 +7,7 @@ export interface IncomeItem {
   platform: string;
   amount: string;
   trips: string;
+  subcategory?: string;
 }
 
 export interface IncomeRecord {
@@ -18,10 +19,15 @@ export interface IncomeRecord {
   totalTrips: number;
   hoursWorked: string;
   kmDriven: number;
+  startOdometer?: number;
+  endOdometer?: number;
   type?: 'fixed' | 'variable';
   driverName?: string;
   status?: TransactionStatus;
   vehicleId?: string;
+  recurrence?: 'weekly' | 'biweekly' | 'monthly' | 'yearly';
+  isFixedConfig?: boolean;
+  hiddenInHistory?: boolean;
 }
 
 export interface ExpenseRecord {
@@ -47,6 +53,9 @@ export interface ExpenseRecord {
   status?: TransactionStatus;
   platform?: string;
   vehicleId?: string;
+  recurrence?: 'weekly' | 'biweekly' | 'monthly' | 'yearly';
+  isFixedConfig?: boolean;
+  hiddenInHistory?: boolean;
 }
 
 export interface FinancialSummary {
@@ -90,6 +99,15 @@ export interface Driver {
   phone?: string;
 }
 
+export interface MaintenancePlanItem {
+  id: string;
+  name: string;
+  subcategory: string;
+  intervalKm: number;
+  lastOdometer?: number;
+  isActive: boolean;
+}
+
 export interface Vehicle {
   id: string;
   brand: string;
@@ -100,7 +118,9 @@ export interface Vehicle {
   type?: 'car' | 'motorcycle' | 'truck' | 'van' | 'bus' | 'pickup';
   tankCapacity?: number | string;
   currentOdometer?: number;
+  initialOdometer?: number;
   maintenanceIntervals?: Record<string, MaintenanceInterval>;
+  maintenancePlan?: MaintenancePlanItem[];
 }
 
 export interface Reminder {
@@ -160,16 +180,23 @@ export interface Platform {
   defaultAmount?: number;
   defaultNotes?: string;
   defaultAttachmentUrl?: string;
+  subcategories?: string[];
 }
 
 export const CATEGORIES: Category[] = [
   // Fixed categories (Default ones requested - MARKED AS BLUE/FIXO)
+  { id: 'inspection', name: 'inspection', icon: 'Search', color: 'primary', isDefault: true, costType: 'fixed' },
+  { id: 'scheduledRevision', name: 'scheduledRevision', icon: 'Settings', color: 'primary', isDefault: true, costType: 'fixed' },
+  { id: 'tax', name: 'tax', icon: 'FileText', color: 'primary', isDefault: true, costType: 'fixed' },
+  { id: 'other_fixed', name: 'other_fixed', icon: 'MoreHorizontal', color: 'primary', isDefault: true, costType: 'fixed' },
   { id: 'ipva', name: 'ipva', icon: 'FileText', color: 'primary', isDefault: true, costType: 'fixed' },
-  { id: 'insurance', name: 'insurance', icon: 'FileText', color: 'primary', isDefault: true, costType: 'fixed' },
-  { id: 'financing', name: 'financing', icon: 'FileText', color: 'primary', isDefault: true, costType: 'fixed' },
+  { id: 'insurance', name: 'insurance', icon: 'Gavel', color: 'primary', isDefault: true, costType: 'fixed' },
+  { id: 'financing', name: 'financing', icon: 'CreditCard', color: 'primary', isDefault: true, costType: 'fixed' },
   { id: 'licensing', name: 'licensing', icon: 'IdCard', color: 'primary', isDefault: true, costType: 'fixed' },
   { id: 'tracker', name: 'tracker', icon: 'Radar', color: 'primary', isDefault: true, costType: 'fixed' },
-  { id: 'consortium', name: 'consortium', icon: 'FileText', color: 'primary', isDefault: true, costType: 'fixed' },
+  { id: 'consortium', name: 'consortium', icon: 'Users', color: 'primary', isDefault: true, costType: 'fixed' },
+  { id: 'rent', name: 'rent', icon: 'KeyRound', color: 'primary', isDefault: true, costType: 'fixed' },
+  { id: 'internet', name: 'internet', icon: 'Wifi', color: 'primary', isDefault: true, costType: 'fixed' },
 
   { id: 'registration', name: 'registration', icon: 'IdCard', color: 'error', isDefault: true, costType: 'variable' },
   { id: 'tow', name: 'tow', icon: 'Truck', color: 'error', isDefault: true, costType: 'variable' },
@@ -192,10 +219,9 @@ export const CATEGORIES: Category[] = [
       'brakePad', 'radiator', 'suspension', 'brakeChange',
       'timingBelt', 'alternator', 'starterMotor', 'electronicInjection',
       'oxygenSensor', 'catalyticConverter', 'airConditioning', 'electricalSystem', 'lighting',
-      'revision', 'carenagem', 'otherMaintenanceAdjustment'
+      'revision', 'carenagem', 'tires', 'otherMaintenanceAdjustment'
     ]
   },
-  { id: 'toll', name: 'toll', icon: 'Milestone', color: 'error', isDefault: true, costType: 'variable' },
   { id: 'washing', name: 'washing', icon: 'Droplets', color: 'error', isDefault: true, costType: 'variable' },
   { 
     id: 'accessories', 
@@ -210,34 +236,24 @@ export const CATEGORIES: Category[] = [
       'hydraulicJack', 'wrench', 'fireExtinguisher', 'triangle', 'firstAidKit'
     ] 
   },
-  
-  // Other fixed
-  { id: 'internet', name: 'internet', icon: 'Wifi', color: 'primary', isDefault: true, costType: 'fixed' },
-  { id: 'rent', name: 'rent', icon: 'KeyRound', color: 'primary', isDefault: true, costType: 'fixed', defaultAmount: 0 },
-  { id: 'tax', name: 'tax', icon: 'FileText', color: 'primary', isDefault: true, costType: 'fixed' },
+  { id: 'toll', name: 'toll', icon: 'Milestone', color: 'error', isDefault: true, costType: 'variable' },
 ];
 
 export const PLATFORMS: Platform[] = [
+  { id: 'uber', name: 'uber', icon: 'U', color: 'black', isDefault: true, type: 'variable', subcategories: ['UberX', 'Uber Comfort', 'Uber Bag', 'Uber Black', 'Uber Moto'] },
+  { id: '99', name: '99', icon: '99', color: 'yellow-500', isDefault: true, type: 'variable', subcategories: ['99 Pop', '99 Top', '99 Moto', '99 Taxi', '99 Plus'] },
   { id: 'indrive', name: 'indrive', icon: 'Car', color: 'blue-500', isDefault: true, type: 'variable' },
-  { id: 'other', name: 'other', icon: 'MoreHorizontal', color: 'neutral-200', isDefault: true, type: 'variable' },
   { id: 'taxi', name: 'taxi', icon: 'CarTaxiFront', color: 'yellow-500', isDefault: true, type: 'variable' },
   { id: 'freight', name: 'freight', icon: 'Truck', color: 'orange-600', isDefault: true, type: 'variable' },
-  { id: 'carpool', name: 'carpool', icon: 'Users', color: 'green-500', isDefault: true, type: 'variable' },
   { id: 'ifood', name: 'ifood', icon: 'Bike', color: 'red-600', isDefault: true, type: 'variable' },
-  { id: 'maxim', name: 'maxim', icon: 'M', color: 'yellow-300', isDefault: true, type: 'variable' },
   { id: 'rappi', name: 'rappi', icon: 'R', color: 'orange-500', isDefault: true, type: 'variable' },
-  { id: 'james', name: 'james', icon: 'J', color: 'blue-400', isDefault: true, type: 'variable' },
-  { id: 'cabify', name: 'cabify', icon: 'C', color: 'purple-600', isDefault: true, type: 'variable' },
-  { id: '99taxi', name: '99taxi', icon: '99', color: 'yellow-500', isDefault: true, type: 'variable' },
-  { id: '99top', name: '99top', icon: '99', color: 'yellow-600', isDefault: true, type: 'variable' },
-  { id: '99pop', name: '99pop', icon: '99', color: 'yellow-400', isDefault: true, type: 'variable' },
-  { id: 'uberblack', name: 'uberblack', icon: 'U', color: 'black', isDefault: true, type: 'variable' },
-  { id: 'uberx', name: 'uberx', icon: 'U', color: 'black', isDefault: true, type: 'variable' },
-  { id: 'ubercomfort', name: 'ubercomfort', icon: 'U', color: 'black', isDefault: true, type: 'variable' },
-  { id: 'uberbag', name: 'uberbag', icon: 'U', color: 'black', isDefault: true, type: 'variable' },
   { id: 'ladydriver', name: 'ladydriver', icon: 'L', color: 'pink-500', isDefault: true, type: 'variable' },
-  { id: 'sity', name: 'sity', icon: 'S', color: 'blue-600', isDefault: true, type: 'variable' },
   { id: 'wappa', name: 'wappa', icon: 'W', color: 'orange-400', isDefault: true, type: 'variable' },
-  
-  // Fixed platforms
+  { id: 'bonus', name: 'bonus', icon: 'TrendingUp', color: 'green-600', isDefault: true, type: 'variable' },
+  { id: 'tips', name: 'tips', icon: 'CreditCard', color: 'yellow-600', isDefault: true, type: 'variable' },
+  { id: 'lalamove', name: 'lalamove', icon: 'Truck', color: 'orange-500', isDefault: true, type: 'variable' },
+  { id: 'loggi', name: 'loggi', icon: 'Bike', color: 'blue-600', isDefault: true, type: 'variable' },
+  { id: 'carpool', name: 'carpool', icon: 'Users', color: 'green-500', isDefault: true, type: 'variable' },
+  { id: 'maxim', name: 'maxim', icon: 'M', color: 'yellow-300', isDefault: true, type: 'variable' },
+  { id: 'other', name: 'other', icon: 'MoreHorizontal', color: 'neutral-200', isDefault: true, type: 'variable' },
 ];

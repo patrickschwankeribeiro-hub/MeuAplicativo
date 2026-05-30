@@ -46,12 +46,10 @@ export function Sidebar({
   const { t, language } = useLanguage();
   const menuItems = [
     { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard },
+    { id: 'fixed-finance', label: t('fixedFinance'), icon: Repeat },
     { id: 'reports', label: t('reports'), icon: BarChart3 },
-    { id: 'reminders', label: t('reminders'), icon: Bell },
-    { id: 'add', label: t('add'), icon: PlusCircle },
+    { id: 'my-vehicles', label: t('myVehicles'), icon: Car },
     { id: 'calculator', label: t('calculator'), icon: Calculator },
-    { id: 'help', label: t('help'), icon: HelpCircle },
-    { id: 'settings', label: t('settings'), icon: Settings },
   ];
 
   const handleShare = async () => {
@@ -111,34 +109,6 @@ export function Sidebar({
           </button>
         </div>
 
-        {/* Vehicle Switcher */}
-        {userProfile?.vehicles && userProfile.vehicles.length > 0 && (
-          <div className="px-6 mb-8">
-            <div className="bg-surface-container-lowest p-4 rounded-2xl border border-outline-variant/10 shadow-sm">
-              <div className="flex items-center justify-between px-1 mb-2">
-                <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest opacity-50">
-                  Veículo Ativo
-                </label>
-              </div>
-              <div className="relative group">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse z-10" />
-                <select
-                  value={activeVehicleId || ''}
-                  onChange={(e) => onActiveVehicleChange?.(e.target.value)}
-                  className="w-full bg-surface py-2 pl-7 pr-8 rounded-xl text-xs font-bold border border-outline-variant/5 outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer relative"
-                >
-                  {userProfile.vehicles.map(v => (
-                    <option key={v.id} value={v.id}>
-                      {v.brand} {v.model} ({v.plate})
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none opacity-50" />
-              </div>
-            </div>
-          </div>
-        )}
-        
         <nav className="flex-1 space-y-2 px-4 overflow-y-auto custom-scrollbar">
           {menuItems.map((item) => {
             const isActive = currentScreen === item.id || (item.id === 'add' && (currentScreen === 'add-income' || currentScreen === 'add-expense'));
@@ -164,23 +134,42 @@ export function Sidebar({
           })}
         </nav>
 
-        <div className="px-8 mt-auto pt-4 space-y-2">
-          <button 
-            onClick={handleShare}
-            className="flex items-center gap-3 px-6 py-4 text-primary font-headline font-semibold hover:bg-primary/10 rounded-xl transition-all w-full text-left whitespace-nowrap"
-          >
-            <Share2 size={24} />
-            <span>{t('share')}</span>
-          </button>
-          
-          <button 
-            onClick={onLogout}
-            className="flex items-center gap-3 px-6 py-4 text-error font-headline font-semibold hover:bg-error-container/10 rounded-xl transition-all w-full text-left whitespace-nowrap"
-          >
-            <LogOut size={24} />
-            <span>{t('logout')}</span>
-          </button>
-        </div>
+          <div className="pt-2 space-y-1">
+            <button 
+              onClick={() => {
+                onNavigate('settings');
+                if (window.innerWidth < 1024) onToggle();
+              }}
+              className={`w-full flex items-center gap-3 px-6 py-4 rounded-r-full transition-all duration-200 font-headline font-semibold text-left active:scale-[0.97] whitespace-nowrap ${currentScreen === 'settings' ? 'bg-surface-container-lowest text-primary shadow-sm border-l-4 border-primary' : 'text-neutral-500 hover:text-primary'}`}
+            >
+              <Settings size={24} fill={currentScreen === 'settings' ? "currentColor" : "none"} />
+              <span>{t('settings')}</span>
+            </button>
+            <button 
+              onClick={() => {
+                onNavigate('help');
+                if (window.innerWidth < 1024) onToggle();
+              }}
+              className={`w-full flex items-center gap-3 px-6 py-4 rounded-r-full transition-all duration-200 font-headline font-semibold text-left active:scale-[0.97] whitespace-nowrap ${currentScreen === 'help' ? 'bg-surface-container-lowest text-primary shadow-sm border-l-4 border-primary' : 'text-neutral-500 hover:text-primary'}`}
+            >
+              <HelpCircle size={24} fill={currentScreen === 'help' ? "currentColor" : "none"} />
+              <span>{t('help')}</span>
+            </button>
+            <button 
+              onClick={handleShare}
+              className="w-full flex items-center gap-3 px-6 py-4 text-primary font-headline font-semibold hover:bg-primary/10 rounded-xl transition-all text-left whitespace-nowrap"
+            >
+              <Share2 size={24} />
+              <span>{t('share')}</span>
+            </button>
+            <button 
+              onClick={onLogout}
+              className="w-full flex items-center gap-3 px-6 py-4 text-error font-headline font-semibold hover:bg-error-container/10 rounded-xl transition-all text-left whitespace-nowrap"
+            >
+              <LogOut size={24} />
+              <span>{t('logout')}</span>
+            </button>
+          </div>
       </motion.aside>
     </>
   );
