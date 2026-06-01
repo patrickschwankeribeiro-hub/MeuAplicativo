@@ -10,7 +10,7 @@ createRoot(document.getElementById('root')!).render(
 );
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
+  const registerSW = () => {
     navigator.serviceWorker.register('/sw.js')
       .then((reg) => {
         console.log('Service Worker registered successfully with scope:', reg.scope);
@@ -18,6 +18,12 @@ if ('serviceWorker' in navigator) {
       .catch((err) => {
         console.error('Service Worker registration failed:', err);
       });
-  });
+  };
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    registerSW();
+  } else {
+    window.addEventListener('load', registerSW);
+  }
 }
 
