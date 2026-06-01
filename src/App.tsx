@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Smartphone } from 'lucide-react';
 import { Layout } from './components/Layout';
 import { DashboardScreen } from './components/DashboardScreen';
 import { AddSelectionScreen } from './components/AddSelectionScreen';
@@ -19,6 +20,7 @@ import { HelpScreen } from './components/HelpScreen';
 import { AdminScreen } from './components/AdminScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { SignupScreen } from './components/SignupScreen';
+import { PwaInstallModal } from './components/PwaInstallModal';
 import { Screen, IncomeRecord, ExpenseRecord, Goal, UserProfile, GoalHistory, Category, Platform, CATEGORIES, PLATFORMS, TransactionStatus, MaintenancePlanItem } from './types';
 import { parseLocaleNumber } from './lib/currency';
 import { calculateFuelPerformance } from './lib/fuel';
@@ -50,6 +52,34 @@ function AppContent() {
   });
   const [initialData, setInitialData] = useState<any>(null);
   const [isPrivacyActive, setIsPrivacyActive] = useState(false);
+  
+  // PWA installation state
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleTriggerInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`PWA install response: ${outcome}`);
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+    setIsInstallModalOpen(false);
+  };
 
   const [isAdminMode] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1708,21 +1738,46 @@ function AppContent() {
       );
     }
 
-    return isAdminMode ? (
-      <AdminScreen onNavigate={() => window.location.href = '/'} />
-    ) : isAuthenticated ? (
-      <Layout 
-        currentScreen={currentScreen} 
-        onNavigate={navigateTo} 
-        onLogout={handleLogout}
-        userProfile={userProfile}
-        activeVehicleId={activeVehicleId}
-        onActiveVehicleChange={setActiveVehicleId}
-      >
-        {renderScreen()}
-      </Layout>
-    ) : (
-      renderScreen()
+    return (
+      <>
+        {isAdminMode ? (
+          <AdminScreen onNavigate={() => window.location.href = '/'} />
+        ) : isAuthenticated ? (
+          <Layout 
+            currentScreen={currentScreen} 
+            onNavigate={navigateTo} 
+            onLogout={handleLogout}
+            userProfile={userProfile}
+            activeVehicleId={activeVehicleId}
+            onActiveVehicleChange={setActiveVehicleId}
+            onInstallPwa={() => setIsInstallModalOpen(true)}
+          >
+            {renderScreen()}
+          </Layout>
+        ) : (
+          <div className="relative min-h-screen">
+            {renderScreen()}
+            {/* Elegant tiny floating install-app trigger on login/signup view */}
+            <div className="fixed bottom-6 right-6 z-50">
+              <button
+                onClick={() => setIsInstallModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-3 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-emerald-400 font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl transition-all active:scale-95 hover:scale-105"
+                title="Instalar Aplicativo"
+              >
+                <Smartphone size={16} />
+                <span>Instalar Aplicativo 📲</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        <PwaInstallModal
+          isOpen={isInstallModalOpen}
+          onClose={() => setIsInstallModalOpen(false)}
+          deferredPrompt={deferredPrompt}
+          onTriggerInstall={handleTriggerInstall}
+        />
+      </>
     );
 }
 

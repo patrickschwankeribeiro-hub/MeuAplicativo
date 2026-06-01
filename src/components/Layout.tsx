@@ -16,7 +16,8 @@ import {
   Car,
   ChevronDown,
   Share2,
-  HelpCircle
+  HelpCircle,
+  Smartphone
 } from 'lucide-react';
 import { Screen, UserProfile, Vehicle } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -31,6 +32,7 @@ interface SidebarProps {
   userProfile?: UserProfile | null;
   activeVehicleId?: string | null;
   onActiveVehicleChange?: (id: string) => void;
+  onInstallPwa?: () => void;
 }
 
 export function Sidebar({ 
@@ -41,7 +43,8 @@ export function Sidebar({
   onToggle,
   userProfile,
   activeVehicleId,
-  onActiveVehicleChange
+  onActiveVehicleChange,
+  onInstallPwa
 }: SidebarProps) {
   const { t, language } = useLanguage();
   const menuItems = [
@@ -162,6 +165,15 @@ export function Sidebar({
               <Share2 size={24} />
               <span>{t('share')}</span>
             </button>
+            {onInstallPwa && (
+              <button 
+                onClick={onInstallPwa}
+                className="w-full flex items-center gap-3 px-6 py-4 text-emerald-500 font-headline font-semibold hover:bg-emerald-500/10 rounded-xl transition-all text-left whitespace-nowrap group"
+              >
+                <Smartphone size={24} className="group-hover:scale-110 transition-transform" />
+                <span>{language === 'pt-BR' ? 'Instalar Aplicativo' : 'Install App'}</span>
+              </button>
+            )}
             <button 
               onClick={onLogout}
               className="w-full flex items-center gap-3 px-6 py-4 text-error font-headline font-semibold hover:bg-error-container/10 rounded-xl transition-all text-left whitespace-nowrap"
@@ -182,7 +194,8 @@ export function Layout({
   onLogout,
   userProfile,
   activeVehicleId,
-  onActiveVehicleChange
+  onActiveVehicleChange,
+  onInstallPwa
 }: { 
   children: React.ReactNode, 
   currentScreen: Screen, 
@@ -190,7 +203,8 @@ export function Layout({
   onLogout: () => void,
   userProfile?: UserProfile | null,
   activeVehicleId?: string | null,
-  onActiveVehicleChange?: (id: string) => void
+  onActiveVehicleChange?: (id: string) => void,
+  onInstallPwa?: () => void
 }) {
   const { language } = useLanguage();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -227,6 +241,7 @@ export function Layout({
         userProfile={userProfile}
         activeVehicleId={activeVehicleId}
         onActiveVehicleChange={onActiveVehicleChange}
+        onInstallPwa={onInstallPwa}
       />
       
       <main className={`flex-1 min-h-screen relative transition-all duration-300 ${isSidebarOpen ? 'lg:ml-72' : 'ml-0'}`}>
