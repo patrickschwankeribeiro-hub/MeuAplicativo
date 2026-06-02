@@ -1100,13 +1100,13 @@ export function SettingsScreen({
         </section>
 
         {/* Budget Settings */}
-        <section className="col-span-12 bg-surface-container-lowest rounded-xl p-8 shadow-sm overflow-hidden border border-outline-variant/10">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Target className="text-primary" size={24} />
+        <section className="col-span-12 bg-surface-container-lowest rounded-2xl p-4 md:p-5 shadow-sm overflow-hidden border border-outline-variant/10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3.5">
+              <div className="p-1.5 bg-primary/10 rounded-lg">
+                <Target className="text-primary" size={18} />
               </div>
-              <h3 className="text-xl font-black font-headline tracking-tight">{t('goalSettings')}</h3>
+              <h3 className="text-base md:text-lg font-bold font-headline tracking-tight">{t('goalSettings')}</h3>
             </div>
             
             {hasVehicles && (!isAddingGoalHistory || editingGoalType !== 'goal') && (
@@ -1120,9 +1120,9 @@ export function SettingsScreen({
                   setWorkHoursInput('8');
                   setWorkDaysPerWeekInput('6');
                 }} 
-                className="flex items-center gap-2 px-6 py-2.5 bg-primary text-on-primary font-black text-xs rounded-xl shadow-lg hover:scale-105 transition-all"
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-on-primary font-bold text-xs rounded-lg shadow transition-all"
               >
-                <Plus size={18} />
+                <Plus size={14} />
                 {t('newGoal')}
               </button>
             )}
@@ -1130,24 +1130,24 @@ export function SettingsScreen({
 
           {hasVehicles ? (
             (isEditingGoal || isAddingGoalHistory) && editingGoalType === 'goal' ? (
-              <div className="space-y-6 bg-surface-container-low p-8 rounded-3xl border border-outline-variant/30 shadow-md">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  <div className="space-y-3">
-                    <label className="text-[11px] font-black text-on-surface uppercase tracking-widest px-1">{t('month')}</label>
-                    <select className="w-full bg-surface-container-highest p-4 rounded-2xl text-sm font-bold border border-outline-variant/60 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 shadow-sm outline-none transition-all appearance-none" value={goalMonth} onChange={(e) => setGoalMonth(parseInt(e.target.value))}>
+              <div className="space-y-4 bg-surface-container-low p-4 rounded-xl border border-outline-variant/20 shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="space-y-1.5 animate-in fade-in duration-200">
+                    <label className="text-[10px] font-bold text-on-surface uppercase tracking-wider px-1">{t('month')}</label>
+                    <select className="w-full bg-surface-container-highest p-2 px-3 rounded-lg text-xs font-bold border border-outline-variant/60 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 shadow-sm outline-none transition-all appearance-none" value={goalMonth} onChange={(e) => setGoalMonth(parseInt(e.target.value))}>
                       {Array.from({ length: 12 }, (_, i) => <option key={i} value={i}>{new Date(2024, i).toLocaleDateString(language, { month: 'long' })}</option>)}
                     </select>
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-[11px] font-black text-on-surface uppercase tracking-widest px-1">{t('year')}</label>
-                    <select className="w-full bg-surface-container-highest p-4 rounded-2xl text-sm font-bold border border-outline-variant/60 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 shadow-sm outline-none transition-all appearance-none" value={goalYear} onChange={(e) => setGoalYear(parseInt(e.target.value))}>
+                  <div className="space-y-1.5 animate-in fade-in duration-200">
+                    <label className="text-[10px] font-bold text-on-surface uppercase tracking-wider px-1">{t('year')}</label>
+                    <select className="w-full bg-surface-container-highest p-2 px-3 rounded-lg text-xs font-bold border border-outline-variant/60 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 shadow-sm outline-none transition-all appearance-none" value={goalYear} onChange={(e) => setGoalYear(parseInt(e.target.value))}>
                       {Array.from({ length: 5 }, (_, i) => { const year = new Date().getFullYear() - 2 + i; return <option key={year} value={year}>{year}</option>; })}
                     </select>
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-[11px] font-black text-on-surface uppercase tracking-widest px-1">{t('monthlyProfit')} *</label>
+                  <div className="space-y-1.5 animate-in fade-in duration-200">
+                    <label className="text-[10px] font-bold text-on-surface uppercase tracking-wider px-1">{t('monthlyProfit')} *</label>
                     <input 
-                      className="w-full bg-surface-container-highest p-4 rounded-2xl text-sm font-black border border-outline-variant/60 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 shadow-sm outline-none transition-all" 
+                      className="w-full bg-surface-container-highest p-2 px-3 rounded-lg text-xs font-black border border-outline-variant/60 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 shadow-sm outline-none transition-all" 
                       type="text" 
                       placeholder="0,00" 
                       value={monthlyInput} 
@@ -1157,55 +1157,55 @@ export function SettingsScreen({
                       onClick={handleCurrencySelection}
                     />
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-[11px] font-black text-on-surface uppercase tracking-widest px-1">{t('weeklyProfit')}</label>
-                    <input className="w-full bg-surface-container-high p-4 rounded-2xl text-sm font-black border border-outline-variant/40 shadow-sm outline-none transition-all cursor-default" type="text" readOnly value={formatCurrency(calculatedGoals.weekly)} />
+                  <div className="space-y-1.5 animate-in fade-in duration-200">
+                    <label className="text-[10px] font-bold text-on-surface uppercase tracking-wider px-1">{t('weeklyProfit')}</label>
+                    <input className="w-full bg-surface-container-high p-2 px-3 rounded-lg text-xs font-bold border border-outline-variant/40 shadow-sm outline-none transition-all cursor-default text-on-surface-variant" type="text" readOnly value={formatCurrency(calculatedGoals.weekly)} />
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-[11px] font-black text-on-surface uppercase tracking-widest px-1">{t('dailyProfit')}</label>
-                    <input className="w-full bg-surface-container-high p-4 rounded-2xl text-sm font-black border border-outline-variant/40 shadow-sm outline-none transition-all cursor-default" type="text" readOnly value={formatCurrency(calculatedGoals.daily)} />
+                  <div className="space-y-1.5 animate-in fade-in duration-200">
+                    <label className="text-[10px] font-bold text-on-surface uppercase tracking-wider px-1">{t('dailyProfit')}</label>
+                    <input className="w-full bg-surface-container-high p-2 px-3 rounded-lg text-xs font-bold border border-outline-variant/40 shadow-sm outline-none transition-all cursor-default text-on-surface-variant" type="text" readOnly value={formatCurrency(calculatedGoals.daily)} />
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-[11px] font-black text-on-surface uppercase tracking-widest px-1">{t('workHours')} *</label>
-                    <input className="w-full bg-surface-container-highest p-4 rounded-2xl text-sm font-black border border-outline-variant/60 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 shadow-sm outline-none transition-all" type="number" placeholder="8" value={workHoursInput} onChange={(e) => setWorkHoursInput(e.target.value)} />
+                  <div className="space-y-1.5 animate-in fade-in duration-200">
+                    <label className="text-[10px] font-bold text-on-surface uppercase tracking-wider px-1">{t('workHours')} *</label>
+                    <input className="w-full bg-surface-container-highest p-2 px-3 rounded-lg text-xs font-magenta border border-outline-variant/60 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 shadow-sm outline-none transition-all" type="number" placeholder="8" value={workHoursInput} onChange={(e) => setWorkHoursInput(e.target.value)} />
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-[11px] font-black text-on-surface uppercase tracking-widest px-1">{t('workload')} *</label>
-                    <select className="w-full bg-surface-container-highest p-4 rounded-2xl text-sm font-bold border border-outline-variant/60 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 shadow-sm outline-none transition-all appearance-none" value={workDaysPerWeekInput} onChange={(e) => setWorkDaysPerWeekInput(e.target.value)}>
+                  <div className="space-y-1.5 animate-in fade-in duration-200">
+                    <label className="text-[10px] font-bold text-on-surface uppercase tracking-wider px-1">{t('workload')} *</label>
+                    <select className="w-full bg-surface-container-highest p-2 px-3 rounded-lg text-xs font-bold border border-outline-variant/60 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 shadow-sm outline-none transition-all appearance-none" value={workDaysPerWeekInput} onChange={(e) => setWorkDaysPerWeekInput(e.target.value)}>
                       {[1, 2, 3, 4, 5, 6, 7].map(day => <option key={day} value={day}>{day} {day === 1 ? t('dayPerWeek') : t('daysPerWeek')}</option>)}
                     </select>
                   </div>
                 </div>
 
                 {calculatedGoals.monthly > 0 && (
-                  <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex gap-3 animate-in slide-in-from-bottom-2 duration-300 shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-1 opacity-[0.03]">
-                      <Target size={48} className="text-primary rotate-12 translate-x-2 -translate-y-2" />
+                  <div className="bg-primary/5 border border-primary/10 rounded-lg p-3 flex gap-2 animate-in slide-in-from-bottom-1 duration-200 shadow-xs relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-1 opacity-[0.02]">
+                      <Target size={36} className="text-primary rotate-12 translate-x-2 -translate-y-2" />
                     </div>
-                    <div className="w-8 h-8 bg-primary/15 rounded-full flex items-center justify-center shrink-0">
-                      <Info className="text-primary" size={16} />
+                    <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
+                      <Info className="text-primary" size={13} />
                     </div>
-                    <p className="text-xs font-semibold text-on-surface leading-relaxed z-10">
+                    <p className="text-xs font-medium text-on-surface leading-normal z-10 text-[11px]">
                       {t('goalInfo').replace('{monthly}', formatCurrency(calculatedGoals.monthly)).replace('{hourly}', formatCurrency(calculatedGoals.hourlyProfit)).replace('{hours}', calculatedGoals.workHours.toString())}
                     </p>
                   </div>
                 )}
 
-                <div className="flex justify-end gap-4 pt-4">
-                  <button onClick={() => { setIsEditingGoal(false); setIsAddingGoalHistory(false); }} className="px-6 py-3 text-on-surface-variant font-black text-xs uppercase tracking-widest hover:bg-surface-container-high rounded-xl transition-all">{t('cancel')}</button>
-                  <button onClick={handleSaveGoal} className="px-10 py-4 bg-primary text-on-primary font-black text-xs uppercase tracking-widest rounded-xl shadow-xl transition-all">{t('saveGoal')}</button>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button onClick={() => { setIsEditingGoal(false); setIsAddingGoalHistory(false); }} className="px-4 py-2 text-on-surface-variant font-bold text-[11px] uppercase tracking-wider hover:bg-surface-container-high rounded-lg transition-all">{t('cancel')}</button>
+                  <button onClick={handleSaveGoal} className="px-6 py-2 bg-primary text-on-primary font-bold text-[11px] uppercase tracking-wider rounded-lg shadow transition-all">{t('saveGoal')}</button>
                 </div>
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-3xl border border-outline-variant/10 bg-white/30 backdrop-blur-sm">
+              <div className="overflow-x-auto rounded-xl border border-outline-variant/10 bg-white/35 backdrop-blur-xs">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="bg-surface-container-low/50">
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant whitespace-nowrap">{t('period')}</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant whitespace-nowrap">{t('monthlyProfit')}</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant whitespace-nowrap">{t('weeklyProfit')}</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant whitespace-nowrap">{t('dailyProfit')}</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant text-right whitespace-nowrap">{t('actions')}</th>
+                    <tr className="bg-surface-container-low/40">
+                      <th className="px-4 py-2.5 text-[9px] font-black uppercase tracking-wider text-on-surface-variant whitespace-nowrap">{t('period')}</th>
+                      <th className="px-4 py-2.5 text-[9px] font-black uppercase tracking-wider text-on-surface-variant whitespace-nowrap">{t('monthlyProfit')}</th>
+                      <th className="px-4 py-2.5 text-[9px] font-black uppercase tracking-wider text-on-surface-variant whitespace-nowrap">{t('weeklyProfit')}</th>
+                      <th className="px-4 py-2.5 text-[9px] font-black uppercase tracking-wider text-on-surface-variant whitespace-nowrap">{t('dailyProfit')}</th>
+                      <th className="px-4 py-2.5 text-[9px] font-black uppercase tracking-wider text-on-surface-variant text-right whitespace-nowrap">{t('actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-outline-variant/5">
@@ -1222,30 +1222,30 @@ export function SettingsScreen({
                       .map(([key, h]) => {
                         const goal = h as Goal;
                         return (
-                          <tr key={key} className="hover:bg-surface-container-low transition-colors group">
-                            <td className="px-6 py-4 text-sm font-bold capitalize whitespace-nowrap">
+                          <tr key={key} className="hover:bg-surface-container-low/70 transition-colors group">
+                            <td className="px-4 py-2 text-xs font-bold capitalize whitespace-nowrap">
                               {new Date(goal.year, goal.month).toLocaleDateString(language, { month: 'long', year: 'numeric' })}
                             </td>
-                            <td className="px-6 py-4 text-sm font-black text-primary whitespace-nowrap">{formatCurrency(goal.monthly)}</td>
-                            <td className="px-6 py-4 text-sm font-bold text-primary/70 whitespace-nowrap">{formatCurrency(goal.weekly)}</td>
-                            <td className="px-6 py-4 text-sm font-bold text-secondary whitespace-nowrap">{formatCurrency(goal.daily)}</td>
-                            <td className="px-6 py-4 text-right">
+                            <td className="px-4 py-2 text-xs font-black text-primary whitespace-nowrap">{formatCurrency(goal.monthly)}</td>
+                            <td className="px-4 py-2 text-xs font-bold text-primary/70 whitespace-nowrap">{formatCurrency(goal.weekly)}</td>
+                            <td className="px-4 py-2 text-xs font-bold text-secondary whitespace-nowrap">{formatCurrency(goal.daily)}</td>
+                            <td className="px-4 py-2 text-right">
                               <div className="flex items-center justify-end gap-1">
-                                <button onClick={() => { setEditingGoalType('goal'); setGoalMonth(goal.month); setGoalYear(goal.year); setMonthlyInput(formatLocaleCurrency(goal.monthly, language)); setWorkHoursInput(goal.workHours.toString()); setWorkDaysPerWeekInput(goal.workDaysPerWeek?.toString() || '6'); setIsEditingGoal(true); }} className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"><Edit2 size={16} /></button>
+                                <button onClick={() => { setEditingGoalType('goal'); setGoalMonth(goal.month); setGoalYear(goal.year); setMonthlyInput(formatLocaleCurrency(goal.monthly, language)); setWorkHoursInput(goal.workHours.toString()); setWorkDaysPerWeekInput(goal.workDaysPerWeek?.toString() || '6'); setIsEditingGoal(true); }} className="p-1 text-primary hover:bg-primary/10 rounded-md transition-colors"><Edit2 size={13} /></button>
                                 <button onClick={() => { 
                                   if (goal.categoryBudgets && Object.keys(goal.categoryBudgets).length > 0) { 
                                     onSaveGoal({...goal, monthly: 0, daily: 0, weekly: 0, yearly: 0}); 
                                   } else { 
                                     onDeleteGoalHistory?.(key); 
                                   } 
-                                }} className="p-2 text-error hover:bg-error/10 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                                }} className="p-1 text-error hover:bg-error/10 rounded-md transition-colors"><Trash2 size={13} /></button>
                               </div>
                             </td>
                           </tr>
                         );
                       })}
                     {Object.values(activeVehicleGoalHistory).filter(h => (h as Goal)?.monthly > 0).length === 0 && (
-                      <tr><td colSpan={4} className="p-12 text-center opacity-30 font-bold uppercase tracking-widest text-xs">{t('noGoalsFound')}</td></tr>
+                      <tr><td colSpan={5} className="py-8 text-center opacity-40 font-bold uppercase tracking-wider text-[10px]">{t('noGoalsFound')}</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -1269,13 +1269,13 @@ export function SettingsScreen({
         </section>
 
         {/* Budget Settings */}
-        <section className="col-span-12 bg-surface-container-lowest rounded-xl p-8 shadow-sm overflow-hidden border border-outline-variant/10 mt-6">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-error/10 rounded-lg">
-                <Tag className="text-error" size={24} />
+        <section className="col-span-12 bg-surface-container-lowest rounded-2xl p-4 md:p-5 shadow-sm overflow-hidden border border-outline-variant/10 mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3.5">
+              <div className="p-1.5 bg-error/10 rounded-lg">
+                <Tag className="text-error" size={18} />
               </div>
-              <h3 className="text-xl font-black font-headline tracking-tight">{t('budgetSettings')}</h3>
+              <h3 className="text-base md:text-lg font-bold font-headline tracking-tight">{t('budgetSettings')}</h3>
             </div>
             
             {hasVehicles && (!isAddingGoalHistory || editingGoalType !== 'budget') && (
@@ -1287,9 +1287,9 @@ export function SettingsScreen({
                   setGoalYear(new Date().getFullYear());
                   setCategoryBudgetsInput({ maintenance: '0,00', washing: '0,00', fuel: '0,00', food: '0,00', toll: '0,00', parking: '0,00', ferry: '0,00' });
                 }} 
-                className="flex items-center gap-2 px-6 py-2.5 bg-error text-white font-black text-xs rounded-xl shadow-lg hover:scale-105 transition-all"
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-error text-white font-bold text-xs rounded-lg shadow transition-all"
               >
-                <Plus size={18} />
+                <Plus size={14} />
                 {t('newBudget')}
               </button>
             )}
@@ -1297,28 +1297,28 @@ export function SettingsScreen({
 
           {hasVehicles ? (
             (isEditingGoal || isAddingGoalHistory) && editingGoalType === 'budget' ? (
-              <div className="space-y-6 bg-surface-container-low p-8 rounded-3xl border border-outline-variant/30 shadow-md">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-3">
-                    <label className="text-[11px] font-black text-on-surface uppercase tracking-widest px-1">{t('month')}</label>
-                    <select className="w-full bg-surface-container-highest p-4 rounded-2xl text-sm font-bold border border-outline-variant/60 focus:border-error/50 focus:ring-4 focus:ring-error/10 shadow-sm outline-none transition-all appearance-none" value={goalMonth} onChange={(e) => setGoalMonth(parseInt(e.target.value))}>
+              <div className="space-y-4 bg-surface-container-low p-4 rounded-xl border border-outline-variant/20 shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5 animate-in fade-in duration-200">
+                    <label className="text-[10px] font-bold text-on-surface uppercase tracking-wider px-1">{t('month')}</label>
+                    <select className="w-full bg-surface-container-highest p-2 px-3 rounded-lg text-xs font-bold border border-outline-variant/60 focus:border-error/50 focus:ring-4 focus:ring-error/10 shadow-sm outline-none transition-all appearance-none" value={goalMonth} onChange={(e) => setGoalMonth(parseInt(e.target.value))}>
                       {Array.from({ length: 12 }, (_, i) => <option key={i} value={i}>{new Date(2024, i).toLocaleDateString(language, { month: 'long' })}</option>)}
                     </select>
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-[11px] font-black text-on-surface uppercase tracking-widest px-1">{t('year')}</label>
-                    <select className="w-full bg-surface-container-highest p-4 rounded-2xl text-sm font-bold border border-outline-variant/60 focus:border-error/50 focus:ring-4 focus:ring-error/10 shadow-sm outline-none transition-all appearance-none" value={goalYear} onChange={(e) => setGoalYear(parseInt(e.target.value))}>
+                  <div className="space-y-1.5 animate-in fade-in duration-200">
+                    <label className="text-[10px] font-bold text-on-surface uppercase tracking-wider px-1">{t('year')}</label>
+                    <select className="w-full bg-surface-container-highest p-2 px-3 rounded-lg text-xs font-bold border border-outline-variant/60 focus:border-error/50 focus:ring-4 focus:ring-error/10 shadow-sm outline-none transition-all appearance-none" value={goalYear} onChange={(e) => setGoalYear(parseInt(e.target.value))}>
                       {Array.from({ length: 5 }, (_, i) => { const year = new Date().getFullYear() - 2 + i; return <option key={year} value={year}>{year}</option>; })}
                     </select>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-6">
+                <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
                   {['maintenance', 'washing', 'fuel', 'food', 'toll', 'parking', 'ferry'].map(id => (
-                    <div key={id} className="space-y-3">
-                      <label className="text-[11px] font-black text-on-surface uppercase tracking-widest px-1">{t(id)}</label>
+                    <div key={id} className="space-y-1.5 animate-in fade-in duration-200">
+                      <label className="text-[10px] font-bold text-on-surface uppercase tracking-wider px-1">{t(id)}</label>
                       <input 
-                        className="w-full bg-surface-container-highest p-4 rounded-2xl text-sm font-black border border-outline-variant/60 focus:border-error/50 focus:ring-4 focus:ring-error/10 shadow-sm outline-none transition-all" 
+                        className="w-full bg-surface-container-highest p-2 px-3 rounded-lg text-xs font-black border border-outline-variant/60 focus:border-error/50 focus:ring-4 focus:ring-error/10 shadow-sm outline-none transition-all" 
                         type="text" 
                         placeholder="0,00" 
                         value={categoryBudgetsInput[id] || ''} 
@@ -1331,25 +1331,25 @@ export function SettingsScreen({
                   ))}
                 </div>
 
-                <div className="flex justify-end gap-4 pt-4">
-                  <button onClick={() => { setIsEditingGoal(false); setIsAddingGoalHistory(false); }} className="px-6 py-3 text-on-surface-variant font-black text-xs uppercase tracking-widest hover:bg-surface-container-high rounded-xl transition-all">{t('cancel')}</button>
-                  <button onClick={handleSaveGoal} className="px-10 py-4 bg-error text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-xl transition-all">{t('saveBudget')}</button>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button onClick={() => { setIsEditingGoal(false); setIsAddingGoalHistory(false); }} className="px-4 py-2 text-on-surface-variant font-bold text-[11px] uppercase tracking-wider hover:bg-surface-container-high rounded-lg transition-all">{t('cancel')}</button>
+                  <button onClick={handleSaveGoal} className="px-6 py-2 bg-error text-white font-bold text-[11px] uppercase tracking-wider rounded-lg shadow transition-all">{t('saveBudget')}</button>
                 </div>
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-3xl border border-outline-variant/10 bg-white/30 backdrop-blur-sm">
-                <table className="w-full text-left">
+              <div className="overflow-x-auto rounded-xl border border-outline-variant/10 bg-white/35 backdrop-blur-xs">
+                <table className="w-full text-left font-body">
                   <thead>
-                    <tr className="bg-surface-container-low/50">
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant whitespace-nowrap">{t('period')}</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant whitespace-nowrap">{t('maintenance')}</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant whitespace-nowrap">{t('fuel')}</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant whitespace-nowrap">{t('food')}</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant whitespace-nowrap">{t('toll')}</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant whitespace-nowrap">{t('balsa')}</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant whitespace-nowrap">{t('parking')}</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant whitespace-nowrap">{t('totalBudget')}</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant text-right whitespace-nowrap">{t('actions')}</th>
+                    <tr className="bg-surface-container-low/40">
+                      <th className="px-3 py-2.5 text-[9px] font-black uppercase tracking-wider text-on-surface-variant whitespace-nowrap">{t('period')}</th>
+                      <th className="px-3 py-2.5 text-[9px] font-black uppercase tracking-wider text-on-surface-variant whitespace-nowrap">{t('maintenance')}</th>
+                      <th className="px-3 py-2.5 text-[9px] font-black uppercase tracking-wider text-on-surface-variant whitespace-nowrap">{t('fuel')}</th>
+                      <th className="px-3 py-2.5 text-[9px] font-black uppercase tracking-wider text-on-surface-variant whitespace-nowrap">{t('food')}</th>
+                      <th className="px-3 py-2.5 text-[9px] font-black uppercase tracking-wider text-on-surface-variant whitespace-nowrap">{t('toll')}</th>
+                      <th className="px-3 py-2.5 text-[9px] font-black uppercase tracking-wider text-on-surface-variant whitespace-nowrap">{t('balsa')}</th>
+                      <th className="px-3 py-2.5 text-[9px] font-black uppercase tracking-wider text-on-surface-variant whitespace-nowrap">{t('parking')}</th>
+                      <th className="px-3 py-2.5 text-[9px] font-black uppercase tracking-wider text-on-surface-variant whitespace-nowrap">{t('totalBudget')}</th>
+                      <th className="px-3 py-2.5 text-[9px] font-black uppercase tracking-wider text-on-surface-variant text-right whitespace-nowrap">{t('actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-outline-variant/5">
@@ -1367,27 +1367,27 @@ export function SettingsScreen({
                         const budget = h as Goal;
                         const totalBudget = Object.values(budget.categoryBudgets || {}).reduce((sum, v) => (sum as number) + (v as number), 0) as number;
                         return (
-                          <tr key={key} className="hover:bg-surface-container-low transition-colors group">
-                            <td className="px-6 py-4 text-sm font-bold capitalize whitespace-nowrap">
+                          <tr key={key} className="hover:bg-surface-container-low/70 transition-colors group">
+                            <td className="px-3 py-2 text-xs font-bold capitalize whitespace-nowrap">
                               {new Date(budget.year, budget.month).toLocaleDateString(language, { month: 'long', year: 'numeric' })}
                             </td>
-                            <td className="px-6 py-4 text-xs font-black text-error/60 whitespace-nowrap">{formatCurrency(budget.categoryBudgets?.maintenance || 0)}</td>
-                            <td className="px-6 py-4 text-xs font-black text-error/60 whitespace-nowrap">{formatCurrency(budget.categoryBudgets?.fuel || 0)}</td>
-                            <td className="px-6 py-4 text-xs font-black text-error/60 whitespace-nowrap">{formatCurrency(budget.categoryBudgets?.food || 0)}</td>
-                            <td className="px-6 py-4 text-xs font-black text-error/60 whitespace-nowrap">{formatCurrency(budget.categoryBudgets?.toll || 0)}</td>
-                            <td className="px-6 py-4 text-xs font-black text-error/60 whitespace-nowrap">{formatCurrency(budget.categoryBudgets?.ferry || 0)}</td>
-                            <td className="px-6 py-4 text-xs font-black text-error/60 whitespace-nowrap">{formatCurrency(budget.categoryBudgets?.parking || 0)}</td>
-                            <td className="px-6 py-4 text-sm font-black text-error whitespace-nowrap">{formatCurrency(totalBudget)}</td>
-                            <td className="px-6 py-4 text-right">
+                            <td className="px-3 py-2 text-[10px] font-bold text-error/70 whitespace-nowrap">{formatCurrency(budget.categoryBudgets?.maintenance || 0)}</td>
+                            <td className="px-3 py-2 text-[10px] font-bold text-error/70 whitespace-nowrap">{formatCurrency(budget.categoryBudgets?.fuel || 0)}</td>
+                            <td className="px-3 py-2 text-[10px] font-bold text-error/70 whitespace-nowrap">{formatCurrency(budget.categoryBudgets?.food || 0)}</td>
+                            <td className="px-3 py-2 text-[10px] font-bold text-error/70 whitespace-nowrap">{formatCurrency(budget.categoryBudgets?.toll || 0)}</td>
+                            <td className="px-3 py-2 text-[10px] font-bold text-error/70 whitespace-nowrap">{formatCurrency(budget.categoryBudgets?.ferry || 0)}</td>
+                            <td className="px-3 py-2 text-[10px] font-bold text-error/70 whitespace-nowrap">{formatCurrency(budget.categoryBudgets?.parking || 0)}</td>
+                            <td className="px-3 py-2 text-xs font-black text-error whitespace-nowrap">{formatCurrency(totalBudget)}</td>
+                            <td className="px-3 py-2 text-right">
                               <div className="flex items-center justify-end gap-1">
-                                <button onClick={() => { setEditingGoalType('budget'); setGoalMonth(budget.month); setGoalYear(budget.year); const b: any = {}; ['maintenance', 'washing', 'fuel', 'food', 'toll', 'parking', 'ferry'].forEach(id => b[id] = formatLocaleCurrency(budget.categoryBudgets?.[id] || 0, language)); setCategoryBudgetsInput(b); setIsEditingGoal(true); }} className="p-2 text-error hover:bg-error/10 rounded-lg transition-colors"><Edit2 size={16} /></button>
+                                <button onClick={() => { setEditingGoalType('budget'); setGoalMonth(budget.month); setGoalYear(budget.year); const b: any = {}; ['maintenance', 'washing', 'fuel', 'food', 'toll', 'parking', 'ferry'].forEach(id => b[id] = formatLocaleCurrency(budget.categoryBudgets?.[id] || 0, language)); setCategoryBudgetsInput(b); setIsEditingGoal(true); }} className="p-1 text-error hover:bg-error/10 rounded-md transition-colors"><Edit2 size={13} /></button>
                                 <button onClick={() => { 
                                   if (budget.monthly > 0) { 
                                     onSaveGoal({...budget, categoryBudgets: {}}); 
                                   } else { 
                                     onDeleteGoalHistory?.(key); 
                                   } 
-                                }} className="p-2 text-error hover:bg-error/10 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                                }} className="p-1 text-error hover:bg-error/10 rounded-md transition-colors"><Trash2 size={13} /></button>
                               </div>
                             </td>
                           </tr>
@@ -1397,7 +1397,7 @@ export function SettingsScreen({
                       const budget = h as Goal;
                       return budget && budget.categoryBudgets && Object.values(budget.categoryBudgets).some(v => (v as number) > 0);
                     }).length === 0 && (
-                      <tr><td colSpan={3} className="p-12 text-center opacity-30 font-bold uppercase tracking-widest text-xs">{t('noBudgetsFound')}</td></tr>
+                      <tr><td colSpan={9} className="py-8 text-center opacity-40 font-bold uppercase tracking-wider text-[10px]">{t('noBudgetsFound')}</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -1473,15 +1473,15 @@ export function SettingsScreen({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between p-2.5 px-4 bg-surface-container-low rounded-xl border border-outline-variant/5 group">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-surface-container-high">
-                          <Icon size={18} style={{ color: cat.color === 'primary' ? '#006397' : cat.color === 'error' ? '#ba1a1a' : 'inherit' }} />
+                    <div className="flex items-center justify-between p-1.5 px-3 bg-surface-container-low rounded-lg border border-outline-variant/5 group">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1 rounded bg-surface-container-high">
+                          <Icon size={14} style={{ color: cat.color === 'primary' ? '#006397' : cat.color === 'error' ? '#ba1a1a' : 'inherit' }} />
                         </div>
                         <div className="flex flex-col">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-on-surface">{t(cat.name)}</span>
-                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${cat.costType === 'fixed' ? 'bg-primary/10 text-primary border-primary/20' : 'bg-error/10 text-error border-error/20'}`}>{cat.costType === 'fixed' ? t('fixed') : t('variable')}</span>
+                              <span className="text-xs font-bold text-on-surface">{t(cat.name)}</span>
+                              <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full border ${cat.costType === 'fixed' ? 'bg-primary/10 text-primary border-primary/20' : 'bg-error/10 text-error border-error/20'}`}>{cat.costType === 'fixed' ? t('fixed') : t('variable')}</span>
                             </div>
                         </div>
                       </div>
@@ -1492,7 +1492,7 @@ export function SettingsScreen({
                             className="p-1.5 rounded-lg hover:bg-surface-container-high text-primary transition-colors"
                             title={t('newSubcategory')}
                           >
-                            <Plus size={16} />
+                            <Plus size={14} />
                           </button>
                         )}
                         {cat.subcategories && cat.subcategories.length > 0 && (
@@ -1500,7 +1500,7 @@ export function SettingsScreen({
                             onClick={() => toggleCategory(cat.id)} 
                             className={`p-1.5 rounded-lg hover:bg-surface-container-high transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
                           >
-                            <ChevronDown size={14} className="text-on-surface-variant" />
+                            <ChevronDown size={12} className="text-on-surface-variant" />
                           </button>
                         )}
                         
@@ -1509,13 +1509,13 @@ export function SettingsScreen({
                             setEditingCategoryId(cat.id); 
                             setEditingCategoryName(cat.isDefault ? t(cat.id) : cat.name); 
                             setEditingCategoryType(cat.costType); 
-                          }} className="text-on-surface-variant hover:text-primary p-1 rounded-lg hover:bg-surface-container-high transition-colors"><Edit2 size={14} /></button>
+                          }} className="text-on-surface-variant hover:text-primary p-1 rounded-lg hover:bg-surface-container-high transition-colors"><Edit2 size={12} /></button>
                         )}
                         
                         {!cat.isDefault && !systemCategoryIds.has(cat.id) && (
                           <button onClick={() => {
                             handleDeleteCategory(cat.id);
-                          }} className="text-on-surface-variant hover:text-error p-1 rounded-lg hover:bg-surface-container-high transition-colors"><Trash2 size={14} /></button>
+                          }} className="text-on-surface-variant hover:text-error p-1 rounded-lg hover:bg-surface-container-high transition-colors"><Trash2 size={12} /></button>
                         )}
                       </div>
                     </div>
@@ -1664,19 +1664,19 @@ export function SettingsScreen({
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-1 bg-surface-container-low rounded-xl border border-outline-variant/5">
-                    <div className="flex items-center justify-between p-2.5 px-4 group">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-surface-container-high">
+                  <div className="space-y-1 bg-surface-container-low rounded-lg border border-outline-variant/5">
+                    <div className="flex items-center justify-between p-1.5 px-3 group">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1 rounded bg-surface-container-high">
                           {(() => {
                             const Icon = iconMap[plat.icon] || Target;
-                            return <Icon size={18} className={plat.type === 'fixed' ? 'text-primary' : 'text-error'} />;
+                            return <Icon size={14} className={plat.type === 'fixed' ? 'text-primary' : 'text-error'} />;
                           })()}
                         </div>
                         <div className="flex flex-col">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-on-surface">{t(plat.name)}</span>
-                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${plat.type === 'fixed' ? 'bg-primary/10 text-primary border-primary/20' : 'bg-error/10 text-error border-error/20'}`}>{plat.type === 'fixed' ? t('fixed') : t('variable')}</span>
+                              <span className="text-xs font-bold text-on-surface">{t(plat.name)}</span>
+                              <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full border ${plat.type === 'fixed' ? 'bg-primary/10 text-primary border-primary/20' : 'bg-error/10 text-error border-error/20'}`}>{plat.type === 'fixed' ? t('fixed') : t('variable')}</span>
                             </div>
                         </div>
                       </div>
@@ -1687,14 +1687,14 @@ export function SettingsScreen({
                           className="p-1.5 rounded-lg hover:bg-surface-container-high text-primary transition-colors"
                           title={t('newSubcategory')}
                         >
-                          <Plus size={16} />
+                          <Plus size={14} />
                         </button>
                         {plat.subcategories && plat.subcategories.length > 0 && (
                           <button 
                             onClick={() => togglePlatform(plat.id)} 
                             className={`p-1.5 rounded-lg hover:bg-surface-container-high transition-transform duration-300 ${expandedPlatforms.has(plat.id) ? 'rotate-180' : ''}`}
                           >
-                            <ChevronDown size={14} className="text-on-surface-variant" />
+                            <ChevronDown size={12} className="text-on-surface-variant" />
                           </button>
                         )}
 
@@ -1703,13 +1703,13 @@ export function SettingsScreen({
                             setEditingPlatformId(plat.id); 
                             setEditingPlatformName(plat.isDefault ? t(plat.id) : plat.name); 
                             setEditingPlatformType(plat.type); 
-                          }} className="text-on-surface-variant hover:text-primary p-1 rounded-lg hover:bg-surface-container-high transition-colors"><Edit2 size={14} /></button>
+                          }} className="text-on-surface-variant hover:text-primary p-1 rounded-lg hover:bg-surface-container-high transition-colors"><Edit2 size={12} /></button>
                         )}
                         
                         {!plat.isDefault && !systemPlatformIds.has(plat.id) && (
                           <button onClick={() => {
                             handleDeletePlatform(plat.id);
-                          }} className="text-on-surface-variant hover:text-error p-1 rounded-lg hover:bg-surface-container-high transition-colors"><Trash2 size={14} /></button>
+                          }} className="text-on-surface-variant hover:text-error p-1 rounded-lg hover:bg-surface-container-high transition-colors"><Trash2 size={12} /></button>
                         )}
                       </div>
                     </div>

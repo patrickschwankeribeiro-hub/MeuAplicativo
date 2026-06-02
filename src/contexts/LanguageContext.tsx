@@ -530,7 +530,7 @@ export const translations: Translations = {
   moreOptions: { 'pt-BR': 'Mais Opções', 'en-US': 'More Options', 'es-ES': 'Más Opciones', 'fr-FR': 'Plus d\'Options' },
   yourName: { 'pt-BR': 'Seu Nome', 'en-US': 'Your Name', 'es-ES': 'Su Nombre', 'fr-FR': 'Votre Nom' },
   saveProfile: { 'pt-BR': 'Salvar Perfil', 'en-US': 'Save Profile', 'es-ES': 'Guardar Perfil', 'fr-FR': 'Enregistrer le Profil' },
-  myVehicles: { 'pt-BR': 'Meus Veículos', 'en-US': 'My Vehicles', 'es-ES': 'Mis Véhículos', 'fr-FR': 'Mes Véhicules' },
+  myVehicles: { 'pt-BR': 'Veículos e Condutores', 'en-US': 'Vehicles & Drivers', 'es-ES': 'Vehículos y Conductores', 'fr-FR': 'Véhicules et Conducteurs' },
   entryType: { 'pt-BR': 'Tipo', 'en-US': 'Entry Type', 'es-ES': 'Tipo de Entrada', 'fr-FR': 'Type d\'Entrée' },
   dueOrReceiptDate: { 'pt-BR': 'Data de Vencimento ou Recebimento', 'en-US': 'Due or Receipt Date', 'es-ES': 'Fecha de Vencimiento ou Recibo', 'fr-FR': 'Date d\'Échéance ou de Réception' },
   categorySuggestionsTitle: { 'pt-BR': 'Sugestões de Categorias Fixas', 'en-US': 'Suggested Fixed Categories', 'es-ES': 'Sugerencias de Categorías Fijas', 'fr-FR': 'Catégories Suggérées' },

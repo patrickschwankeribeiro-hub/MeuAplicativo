@@ -403,7 +403,7 @@ export function MyVehiclesScreen({
       </AnimatePresence>
 
       <div className="space-y-8 animate-fade-in">
-          <div className="bg-surface-container-lowest rounded-3xl p-8 shadow-sm border border-surface-container-high">
+          <div className="bg-surface-container-lowest rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-sm border border-surface-container-high">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-primary/10 rounded-2xl">
@@ -524,42 +524,42 @@ export function MyVehiclesScreen({
                 </div>
               </motion.div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2 w-full">
                 {(profileData.vehicles || []).map(v => (
                   <div 
                     key={v.id} 
-                    className={`relative p-6 rounded-3xl border transition-all flex items-center justify-between group ${
+                    className={`relative p-3 px-4 rounded-xl border transition-all flex items-center justify-between group ${
                       activeVehicleId === v.id 
-                        ? 'bg-primary/5 border-primary/20 ring-1 ring-primary/20 shadow-md' 
-                        : 'bg-surface-container-low border-surface-container-high hover:border-primary/30'
+                        ? 'bg-primary/5 border-primary/20 ring-1 ring-primary/20 shadow-sm' 
+                        : 'bg-surface-container-low border-surface-container-high hover:border-primary/20'
                     }`}
                   >
                     <div 
-                      className="flex items-center gap-5 cursor-pointer flex-1"
+                      className="flex items-center gap-4 cursor-pointer flex-1"
                       onClick={() => onActiveVehicleChange?.(v.id)}
                     >
-                      <div className={`p-4 rounded-2xl shadow-sm border ${
+                      <div className={`p-2.5 rounded-lg shadow-sm border ${
                         activeVehicleId === v.id ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-primary'
                       }`}>
-                        <Car size={24} />
+                        <Car size={18} />
                       </div>
                       <div className="flex flex-col">
-                        <h4 className="font-black text-lg text-on-surface flex items-center gap-2">
+                        <h4 className="font-bold text-sm md:text-base text-on-surface flex items-center gap-2">
                           {v.brand} {v.model}
                           {activeVehicleId === v.id && (
-                            <span className="px-2 py-0.5 bg-primary text-on-primary text-[8px] font-black rounded uppercase tracking-widest">
+                            <span className="px-1.5 py-0.5 bg-primary text-on-primary text-[7px] font-bold rounded uppercase tracking-widest">
                               {t('active')}
                             </span>
                           )}
                         </h4>
-                        <div className="flex items-center gap-3 mt-1 flex-wrap">
-                          <span className="text-[10px] font-black text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded uppercase tracking-tighter">
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className="text-[9px] font-black text-on-surface-variant bg-surface-container-highest px-1.5 py-0.5 rounded uppercase tracking-tighter">
                             {v.plate}
                           </span>
-                          <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded tracking-tighter flex items-center gap-1">
-                            Odometro Atual: {v.currentOdometer !== undefined && v.currentOdometer !== null ? `${v.currentOdometer.toLocaleString()} km` : '0 km'}
+                          <span className="text-[9px] font-semibold text-on-surface-variant bg-surface-container-highest px-1.5 py-0.5 rounded tracking-tighter flex items-center gap-1">
+                            Odometro: {v.currentOdometer !== undefined && v.currentOdometer !== null ? `${v.currentOdometer.toLocaleString()} km` : '0 km'}
                           </span>
-                          <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded tracking-tighter">
+                          <span className="text-[9px] font-semibold text-on-surface-variant bg-surface-container-highest px-1.5 py-0.5 rounded tracking-tighter">
                             Tanque: {v.tankCapacity}L
                           </span>
                         </div>
@@ -572,19 +572,19 @@ export function MyVehiclesScreen({
                           setVehicleForm(v);
                           setIsAddingVehicle(true);
                         }}
-                        className="p-3 text-primary hover:bg-primary/10 rounded-xl transition-all"
+                        className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-all"
                         title={t('edit')}
                       >
-                        <Edit2 size={18} />
+                        <Edit2 size={14} />
                       </button>
                       <button 
                         onClick={() => {
                           handleDeleteVehicle(v.id);
                         }}
-                        className="p-3 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition-all"
+                        className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-lg transition-all"
                         title={t('delete')}
                       >
-                        <Trash2 size={18} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </div>
@@ -602,7 +602,7 @@ export function MyVehiclesScreen({
       </div>
 
       {/* Driver Registration Section */}
-      <div className="bg-surface-container-lowest rounded-3xl p-8 shadow-sm border border-surface-container-high mt-8">
+      <div className="bg-surface-container-lowest rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-sm border border-surface-container-high mt-8">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-secondary/10 rounded-2xl">
@@ -682,23 +682,23 @@ export function MyVehiclesScreen({
                 </div>
               </motion.div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2 w-full">
                 {(profileData.drivers || []).map(d => (
                   <div 
                     key={d.id} 
-                    className="relative p-6 rounded-3xl border bg-surface-container-low border-surface-container-high flex items-center justify-between transition-all hover:border-secondary/30"
+                    className="relative p-3 px-4 rounded-xl border bg-surface-container-low border-surface-container-high flex items-center justify-between transition-all hover:border-secondary/20 shadow-xs"
                   >
-                    <div className="flex items-center gap-5 flex-1">
-                      <div className="p-4 rounded-2xl shadow-sm border bg-surface-container-highest text-secondary">
-                        <Users size={24} />
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="p-2.5 rounded-lg shadow-sm border bg-surface-container-highest text-secondary">
+                        <Users size={18} />
                       </div>
                       <div className="flex flex-col">
-                        <h4 className="font-black text-lg text-on-surface">
+                        <h4 className="font-bold text-sm md:text-base text-on-surface">
                           {d.name}
                         </h4>
-                        <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           {d.phone && (
-                            <span className="text-[10px] font-black text-on-surface-variant bg-surface-container-highest px-3 py-1 rounded uppercase tracking-tighter">
+                            <span className="text-[9px] font-black text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded uppercase tracking-tighter">
                               {d.phone}
                             </span>
                           )}
@@ -712,25 +712,25 @@ export function MyVehiclesScreen({
                           setEditingDriverId(d.id);
                           setIsAddingDriver(true);
                         }}
-                        className="p-3 text-secondary hover:bg-secondary/10 rounded-xl transition-all"
+                        className="p-2 text-secondary hover:bg-secondary/10 rounded-lg transition-all"
                         title={t('edit')}
                       >
-                        <Edit2 size={18} />
+                        <Edit2 size={14} />
                       </button>
                       <button 
                         onClick={() => handleDeleteDriver(d.id)}
-                        className="p-3 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition-all"
+                        className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-lg transition-all"
                         title={t('delete')}
                       >
-                        <Trash2 size={18} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </div>
                 ))}
                 {(profileData.drivers || []).length === 0 && (
-                  <div className="col-span-full py-16 text-center bg-surface-container-low/30 rounded-[2.5rem] border border-dashed border-outline-variant/30">
-                    <Users size={48} className="mx-auto text-on-surface-variant opacity-20 mb-4" />
-                    <p className="text-sm font-black text-on-surface-variant opacity-40 uppercase tracking-[0.2em]">{t('noDrivers')}</p>
+                  <div className="col-span-full py-10 text-center bg-surface-container-low/30 rounded-2xl border border-dashed border-outline-variant/30">
+                    <Users size={32} className="mx-auto text-on-surface-variant opacity-20 mb-3" />
+                    <p className="text-xs font-black text-on-surface-variant opacity-40 uppercase tracking-[0.2em]">{t('noDrivers')}</p>
                   </div>
                 )}
               </div>

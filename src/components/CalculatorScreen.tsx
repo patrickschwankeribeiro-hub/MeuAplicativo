@@ -221,7 +221,7 @@ export function CalculatorScreen({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <section className="bg-surface-container-lowest p-8 rounded-[2.5rem] shadow-xl border border-surface-container-high space-y-6">
+        <section className="bg-surface-container-lowest p-4 sm:p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] shadow-xl border border-surface-container-high space-y-6">
           <AnimatePresence mode="wait">
 
             {isSmartMode && !isSmartModeEnabled && (
@@ -364,7 +364,7 @@ export function CalculatorScreen({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="flex-1 p-8 rounded-[2.5rem] border-2 border-outline-variant/20 bg-white flex flex-col items-center justify-center text-center gap-6 shadow-xl"
+                className="flex-1 p-4 sm:p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] border-2 border-outline-variant/20 bg-white flex flex-col items-center justify-center text-center gap-6 shadow-xl"
               >
                 <div className={`p-6 rounded-full ${
                   result.advantage === 'ethanol' ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary'
@@ -402,7 +402,7 @@ export function CalculatorScreen({
                 key="placeholder"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex-1 bg-white border-2 border-dashed border-outline-variant/30 rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-center gap-4 shadow-sm"
+                className="flex-1 bg-white border-2 border-dashed border-outline-variant/30 rounded-2xl md:rounded-[2.5rem] flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 text-center gap-4 shadow-sm"
               >
                 <div className="p-4 bg-surface-container-high rounded-full text-neutral-400">
                   <Info size={32} />

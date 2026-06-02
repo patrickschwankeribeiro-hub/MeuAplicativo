@@ -710,15 +710,15 @@ export function DashboardScreen({
       </AnimatePresence>
 
       {/* Symmetrical Unified Dashboard Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-surface-container-lowest p-5 rounded-3xl border border-surface-container-high shadow-sm">
-        <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-container-lowest p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl border border-surface-container-high shadow-sm">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           {/* Sleek Period Filters */}
-          <div className="inline-flex p-1 bg-surface-container-low rounded-xl border border-surface-container-high">
+          <div className="inline-flex p-1 bg-surface-container-low rounded-xl border border-surface-container-high w-full sm:w-auto justify-between sm:justify-start">
             {(['day', 'week', 'month', 'year'] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => onFilterChange(f)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider font-headline transition-all ${
+                className={`flex-1 sm:flex-initial text-center px-2 sm:px-4 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wider font-headline transition-all ${
                   filter === f 
                     ? 'bg-primary text-on-primary shadow-sm scale-102' 
                     : 'text-on-surface-variant hover:bg-surface-container-high'
@@ -731,24 +731,24 @@ export function DashboardScreen({
         </div>
 
         {/* Symmetrical Date Navigator & Active Vehicle */}
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
           {/* Dynamic Compact Date Navigation Controls */}
-          <div className="flex items-center bg-surface-container-low px-2 py-1 rounded-2xl border border-surface-container-high">
+          <div className="flex items-center bg-surface-container-low px-1.5 sm:px-2 py-1 rounded-2xl border border-surface-container-high w-full sm:w-auto justify-between sm:justify-start">
             <button 
               onClick={handlePrevPeriod}
-              className="p-1.5 hover:bg-surface-container-high rounded-lg text-on-surface-variant active:scale-95 transition-all"
+              className="p-1 sm:p-1.5 hover:bg-surface-container-high rounded-lg text-on-surface-variant active:scale-95 transition-all"
               title={language === 'pt-BR' ? 'Anterior' : 'Previous'}
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={15} />
             </button>
             
             <button
               onClick={() => setIsSelectorOpen(true)}
-              className="px-3 py-1 bg-surface-container-lowest hover:bg-primary/5 active:scale-98 transition-all rounded-xl border border-surface-container-high text-xs font-black uppercase tracking-wider text-on-surface flex items-center gap-2 group mx-1 shadow-sm"
+              className="px-2 sm:px-3 py-1 bg-surface-container-lowest hover:bg-primary/5 active:scale-98 transition-all rounded-xl border border-surface-container-high text-[10px] sm:text-xs font-black uppercase tracking-wider text-on-surface flex items-center gap-1.5 sm:gap-2 group mx-0.5 sm:mx-1 shadow-sm flex-1 sm:flex-none justify-center"
               title={language === 'pt-BR' ? 'Selecionar período' : 'Select period'}
             >
-              <Calendar size={14} className="text-primary group-hover:scale-105 transition-transform" />
-              <span>
+              <Calendar size={13} className="text-primary group-hover:scale-105 transition-transform" />
+              <span className="truncate max-w-[120px] sm:max-w-none">
                 {filter === 'day' && new Date(selectedDate + 'T12:00:00').toLocaleDateString(language, { day: '2-digit', month: 'short' })}
                 {filter === 'week' && `${getWeekRangeLabel(selectedYear, selectedWeek)} • ${selectedYear}`}
                 {filter === 'month' && new Date(selectedYear, selectedMonth).toLocaleDateString(language, { month: 'long' }).toUpperCase()}
@@ -758,10 +758,10 @@ export function DashboardScreen({
 
             <button 
               onClick={handleNextPeriod}
-              className="p-1.5 hover:bg-surface-container-high rounded-lg text-on-surface-variant active:scale-95 transition-all"
+              className="p-1 sm:p-1.5 hover:bg-surface-container-high rounded-lg text-on-surface-variant active:scale-95 transition-all"
               title={language === 'pt-BR' ? 'Próximo' : 'Next'}
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={15} />
             </button>
           </div>
 
@@ -778,32 +778,32 @@ export function DashboardScreen({
             let onReturn = () => {};
 
             if (filter === 'day' && selectedDate !== todayStr) {
-              isDifferent = true;
-              returnLabel = language === 'pt-BR' ? 'Hoje' : t('returnToToday');
-              onReturn = () => {
-                onSelectedDateChange(todayStr);
-                onSelectedMonthChange(currentMonth);
-                onSelectedYearChange(currentYear);
-              };
+               isDifferent = true;
+               returnLabel = language === 'pt-BR' ? 'Hoje' : t('returnToToday');
+               onReturn = () => {
+                 onSelectedDateChange(todayStr);
+                 onSelectedMonthChange(currentMonth);
+                 onSelectedYearChange(currentYear);
+               };
             } else if (filter === 'week' && (selectedWeek !== currentWeek || selectedYear !== currentYear)) {
-              isDifferent = true;
-              returnLabel = language === 'pt-BR' ? 'Atual' : t('returnToCurrentWeek');
-              onReturn = () => {
-                onSelectedWeekChange(currentWeek);
-                onSelectedMonthChange(getMonthFromWeek(currentYear, currentWeek));
-                onSelectedYearChange(currentYear);
-              };
+               isDifferent = true;
+               returnLabel = language === 'pt-BR' ? 'Atual' : t('returnToCurrentWeek');
+               onReturn = () => {
+                 onSelectedWeekChange(currentWeek);
+                 onSelectedMonthChange(getMonthFromWeek(currentYear, currentWeek));
+                 onSelectedYearChange(currentYear);
+               };
             } else if (filter === 'month' && (selectedMonth !== currentMonth || selectedYear !== currentYear)) {
-              isDifferent = true;
-              returnLabel = language === 'pt-BR' ? 'Este Mês' : t('returnToCurrentMonth');
-              onReturn = () => {
-                onSelectedMonthChange(currentMonth);
-                onSelectedYearChange(currentYear);
-              };
+               isDifferent = true;
+               returnLabel = language === 'pt-BR' ? 'Este Mês' : t('returnToCurrentMonth');
+               onReturn = () => {
+                 onSelectedMonthChange(currentMonth);
+                 onSelectedYearChange(currentYear);
+               };
             } else if (filter === 'year' && selectedYear !== currentYear) {
-              isDifferent = true;
-              returnLabel = language === 'pt-BR' ? 'Este Ano' : t('returnToCurrentYear');
-              onReturn = () => onSelectedYearChange(currentYear);
+               isDifferent = true;
+               returnLabel = language === 'pt-BR' ? 'Este Ano' : t('returnToCurrentYear');
+               onReturn = () => onSelectedYearChange(currentYear);
             }
 
             if (!isDifferent) return null;
@@ -813,7 +813,7 @@ export function DashboardScreen({
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 onClick={onReturn}
-                className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors border border-primary/10 shadow-sm"
+                className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors border border-primary/10 shadow-sm w-full sm:w-auto justify-center"
               >
                 <RotateCcw size={10} />
                 {returnLabel}
@@ -823,7 +823,7 @@ export function DashboardScreen({
 
           {/* Symmetrical Active Vehicle Option Select */}
           {userProfile?.vehicles && userProfile.vehicles.length > 0 && (
-            <div className="bg-surface-container-low px-3 py-1.5 rounded-2xl border border-surface-container-high flex items-center gap-2 max-w-[170px] shadow-sm">
+            <div className="bg-surface-container-low px-3 py-1.5 rounded-2xl border border-surface-container-high flex items-center gap-2 w-full sm:max-w-[180px] shadow-sm">
               <CarTaxiFront size={14} className="text-primary shrink-0" />
               <div className="relative w-full overflow-hidden">
                 <select
@@ -846,7 +846,7 @@ export function DashboardScreen({
 
       {/* Hero Section - Compact Real Profit Card */}
       <section className="relative">
-        <div className="bg-surface-container-lowest rounded-3xl p-6 md:p-8 shadow-sm border border-surface-container-high relative group overflow-hidden">
+        <div className="bg-surface-container-lowest rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-sm border border-surface-container-high relative group overflow-hidden">
           
           <div className="w-full flex justify-between items-start mb-4">
             <div className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${!closed ? 'bg-orange-50 text-orange-600 border border-orange-100' : 'bg-neutral-100 text-neutral-400 border border-neutral-200'}`}>
@@ -1031,7 +1031,7 @@ export function DashboardScreen({
 
       {/* Maintenance Plan Section */}
       {activeVehicle && (
-        <div className="bg-surface-container-lowest rounded-3xl p-8 shadow-sm border border-surface-container-high space-y-6">
+        <div className="bg-surface-container-lowest rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-sm border border-surface-container-high space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-red-500/10 rounded-2xl text-red-500">
@@ -1160,7 +1160,7 @@ export function DashboardScreen({
                 </div>
               </motion.div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="flex flex-col gap-3 w-full">
                 {(activeVehicle.maintenancePlan || []).map(item => {
                   const currentKm = activeVehicle.currentOdometer || 0;
                   const lastKm = item.lastOdometer || 0;
@@ -1173,8 +1173,8 @@ export function DashboardScreen({
                   const isOverdue = kmRemaining <= 0;
 
                   // Circle stroke calculations
-                  const radius = 28;
-                  const strokeWidth = 5;
+                  const radius = 24;
+                  const strokeWidth = 4;
                   const normalizedRadius = radius - strokeWidth;
                   const circumference = normalizedRadius * 2 * Math.PI;
                   const strokeDashoffset = circumference - (percentage / 100) * circumference;
@@ -1198,12 +1198,12 @@ export function DashboardScreen({
                   return (
                     <div 
                       key={item.id}
-                      className="bg-surface-container-low p-5 rounded-2xl border border-surface-container-high flex items-center justify-between gap-4 hover:border-red-500/20 transition-all shadow-sm"
+                      className="bg-surface-container-low p-3.5 px-5 rounded-2xl border border-surface-container-high flex items-center justify-between gap-4 hover:border-red-500/20 transition-all shadow-sm"
                     >
                       {/* Left Side: Circular Progress */}
-                      <div className="flex items-center gap-4">
-                        <div className="relative flex items-center justify-center w-14 h-14">
-                          <svg className="w-14 h-14 transform -rotate-90">
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="relative flex items-center justify-center w-12 h-12 shrink-0">
+                          <svg className="w-12 h-12 transform -rotate-90">
                             {/* Background Track */}
                             <circle
                               className="text-surface-container-highest stroke-surface-container-highest"
@@ -1226,32 +1226,34 @@ export function DashboardScreen({
                               cy={radius}
                             />
                           </svg>
-                          <span className={`absolute text-[10px] font-black ${themeColorClass}`}>
+                          <span className={`absolute text-[9px] font-black ${themeColorClass}`}>
                             {percentage}%
                           </span>
                         </div>
 
                         {/* Mid Section: Name, interval, target */}
-                        <div className="flex flex-col min-w-0">
-                          <h4 className="font-extrabold text-sm text-on-surface truncate pr-2">
-                            {t(item.name || item.subcategory)}
-                          </h4>
-                          
-                          {/* Marker distance - Restam / Atrasado on top */}
-                          {isOverdue ? (
-                            <span className="text-xs font-black text-red-500 mt-1 flex items-center gap-1">
-                              <AlertTriangle size={12} />
-                              {language === 'pt-BR' ? 'Atrasado' : 'Overdue'} {Math.abs(kmRemaining).toLocaleString(language)} KM
-                            </span>
-                          ) : (
-                            <span className="text-xs font-black text-on-surface-variant mt-1">
-                              {t('planRemainingKm') || 'Restam'}{' '}
-                              <strong className={themeColorClass}>{kmRemaining.toLocaleString(language)} KM</strong>
-                            </span>
-                          )}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between flex-1 min-w-0 gap-1 md:gap-4 md:pr-4">
+                          <div className="min-w-0">
+                            <h4 className="font-extrabold text-sm text-on-surface truncate">
+                              {t(item.name || item.subcategory)}
+                            </h4>
+                            
+                            {/* Marker distance - Restam / Atrasado */}
+                            {isOverdue ? (
+                              <span className="text-[11px] font-bold text-red-500 mt-0.5 flex items-center gap-1">
+                                <AlertTriangle size={11} />
+                                {language === 'pt-BR' ? 'Atrasado' : 'Overdue'} {Math.abs(kmRemaining).toLocaleString(language)} KM
+                              </span>
+                            ) : (
+                              <span className="text-[11px] font-bold text-on-surface-variant mt-0.5 block">
+                                {t('planRemainingKm') || 'Restam'}{' '}
+                                <strong className={themeColorClass}>{kmRemaining.toLocaleString(language)} KM</strong>
+                              </span>
+                            )}
+                          </div>
 
                           {/* Contrast with current and next odometer */}
-                          <div className="mt-2 text-[10px] text-on-surface-variant/85 font-medium leading-normal space-y-0.5 border-t border-outline-variant/10 pt-1.5">
+                          <div className="flex flex-col md:items-end gap-0.5 text-[10px] text-on-surface-variant/85 font-medium leading-normal mt-1 md:mt-0 pt-1 md:pt-0 border-t md:border-t-0 border-outline-variant/10">
                             <div>
                               {language === 'pt-BR' ? 'Odômetro Atual:' : 'Current Odometer:'}{' '}
                               <span className="text-on-surface font-black">{currentKm.toLocaleString(language)} KM</span>
@@ -1277,14 +1279,14 @@ export function DashboardScreen({
                           className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
                           title={language === 'pt-BR' ? 'Editar' : 'Edit'}
                         >
-                          <Edit2 size={16} />
+                          <Edit2 size={15} />
                         </button>
                         <button
                           onClick={() => handleDeletePlanItem(item.id)}
                           className="p-2 text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
                           title={t('delete')}
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </div>
@@ -1553,7 +1555,7 @@ export function DashboardScreen({
       )}
 
       {/* Detailed Statistics */}
-      <section className="bg-surface-container-lowest p-6 rounded-3xl shadow-sm border border-surface-container-high">
+      <section className="bg-surface-container-lowest p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-surface-container-high">
         <div className="flex flex-col items-center justify-center gap-4 mb-8">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-surface-container-high rounded-full flex items-center justify-center">

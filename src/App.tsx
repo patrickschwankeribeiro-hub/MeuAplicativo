@@ -56,6 +56,7 @@ function AppContent() {
   // PWA installation state
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -65,8 +66,43 @@ function AppContent() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
+    // Check if running as PWA / Standalone App
+    const checkStandalone = () => {
+      const isStandaloneMedia = window.matchMedia('(display-mode: standalone)').matches;
+      const isStandaloneNavigator = (window.navigator as any).standalone === true;
+      setIsStandalone(isStandaloneMedia || isStandaloneNavigator);
+    };
+
+    checkStandalone();
+
+    // Listen for display-mode changes
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
+    const handleDisplayModeChange = (e: MediaQueryListEvent) => {
+      setIsStandalone(e.matches || (window.navigator as any).standalone === true);
+    };
+
+    try {
+      mediaQuery.addEventListener('change', handleDisplayModeChange);
+    } catch (err) {
+      // Fallback for older browsers
+      try {
+        mediaQuery.addListener(handleDisplayModeChange);
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      try {
+        mediaQuery.removeEventListener('change', handleDisplayModeChange);
+      } catch (err) {
+        try {
+          mediaQuery.removeListener(handleDisplayModeChange);
+        } catch (e) {
+          console.warn(e);
+        }
+      }
     };
   }, []);
 
@@ -1750,24 +1786,26 @@ function AppContent() {
             userProfile={userProfile}
             activeVehicleId={activeVehicleId}
             onActiveVehicleChange={setActiveVehicleId}
-            onInstallPwa={() => setIsInstallModalOpen(true)}
+            onInstallPwa={isStandalone ? undefined : () => setIsInstallModalOpen(true)}
           >
             {renderScreen()}
           </Layout>
         ) : (
           <div className="relative min-h-screen">
             {renderScreen()}
-            {/* Elegant tiny floating install-app trigger on login/signup view */}
-            <div className="fixed bottom-6 right-6 z-50">
-              <button
-                onClick={() => setIsInstallModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-3 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-emerald-400 font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl transition-all active:scale-95 hover:scale-105"
-                title="Instalar Aplicativo"
-              >
-                <Smartphone size={16} />
-                <span>Instalar Aplicativo 📲</span>
-              </button>
-            </div>
+            {/* Elegant tiny floating install-app trigger on login/signup view, hidden if already installed */}
+            {!isStandalone && (
+              <div className="fixed bottom-6 right-6 z-50">
+                <button
+                  onClick={() => setIsInstallModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-3 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-emerald-400 font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl transition-all active:scale-95 hover:scale-105"
+                  title="Instalar Aplicativo"
+                >
+                  <Smartphone size={16} />
+                  <span>Instalar Aplicativo 📲</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 

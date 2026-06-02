@@ -2167,7 +2167,7 @@ export function ReportsScreen({
       </header>
 
       {/* Chart Selection & Clean Console Section */}
-      <section className="bg-surface-container-lowest p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-surface-container-high relative">
+      <section className="bg-surface-container-lowest p-4 sm:p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] shadow-xl border border-surface-container-high relative">
         
         {/* Consolidated and Styled Dashboard Control Console */}
         <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-5 mb-6 border-b border-outline-variant/10 pb-5">
@@ -2678,7 +2678,7 @@ export function ReportsScreen({
       </section>
 
       {/* Detailed Statistics Section (Moved below Chart) */}
-      <section className="bg-surface-container-lowest p-6 rounded-3xl shadow-sm border border-surface-container-high">
+      <section className="bg-surface-container-lowest p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-surface-container-high">
         <div className="flex flex-col items-center justify-center gap-4 mb-8">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-surface-container-high rounded-full flex items-center justify-center">
@@ -2733,7 +2733,7 @@ export function ReportsScreen({
       </section>
 
       {/* Side-by-Side Category and Platform Cards (Unified single card wrapper) */}
-      <div className="bg-surface-container-lowest p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-surface-container-high transition-all duration-300 w-full mt-8">
+      <div className="bg-surface-container-lowest p-4 sm:p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] shadow-sm border border-surface-container-high transition-all duration-300 w-full mt-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 relative">
           
           {/* Column 1: Expenses by Category */}
@@ -2861,7 +2861,7 @@ export function ReportsScreen({
           {/* Left Arrow Button */}
           <button 
             onClick={() => setActiveSlide(prev => (prev - 1 + totalSlides) % totalSlides)}
-            className="absolute -left-4 sm:-left-16 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-3 rounded-full bg-surface-container-highest shadow-xl transition-all hover:scale-105 active:scale-95 border border-outline-variant/10 text-primary hover:bg-primary hover:text-on-primary"
+            className="absolute left-1 sm:-left-16 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-3 rounded-full bg-surface-container-highest shadow-xl transition-all hover:scale-105 active:scale-95 border border-outline-variant/10 text-primary hover:bg-primary hover:text-on-primary"
             aria-label="Anterior"
           >
             <ChevronLeft size={24} />
@@ -2880,7 +2880,7 @@ export function ReportsScreen({
                   className="w-full"
                 >
                   {/* Recent History */}
-                  <div className="bg-surface-container-lowest p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-surface-container-high transition-all duration-300 w-full">
+                  <div className="bg-surface-container-lowest p-4 sm:p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] shadow-sm border border-surface-container-high transition-all duration-300 w-full">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-surface-container-high rounded-full flex items-center justify-center">
@@ -3104,7 +3104,7 @@ export function ReportsScreen({
                   className="w-full"
                 >
                   {/* Maintenance Report Slider Card */}
-                  <div className="bg-surface-container-lowest p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-surface-container-high transition-all duration-300 w-full relative overflow-hidden">
+                  <div className="bg-surface-container-lowest p-4 sm:p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] shadow-sm border border-surface-container-high transition-all duration-300 w-full relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-5">
                       <Wrench size={120} />
                     </div>
@@ -3140,8 +3140,8 @@ export function ReportsScreen({
                           {/* Subcategories Breakdown */}
                           <div className="space-y-6">
                             
-                            <div className="max-h-[440px] overflow-y-auto pr-2 custom-scrollbar relative">
-                              <div className="space-y-2">
+                            <div className="max-h-[440px] overflow-y-auto overflow-x-auto pr-2 custom-scrollbar relative">
+                              <div className="space-y-2 min-w-[700px]">
                                 <div className="flex items-center px-4 py-3 text-[10px] font-black text-on-secondary uppercase tracking-widest border-b border-secondary/20 sticky top-0 bg-secondary shadow-md z-20 rounded-lg">
                                   <div className="w-16 shrink-0">{t('date')}</div>
                                   <div className="w-24 shrink-0 truncate">{language === 'pt-BR' ? 'Condutor' : (t('driver') || 'Driver')}</div>
@@ -3256,7 +3256,7 @@ export function ReportsScreen({
                   className="w-full"
                 >
                   {/* Resumo de Abastecimentos Slider Card */}
-                  <div className="bg-surface-container-lowest p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-surface-container-high transition-all duration-300 w-full relative overflow-hidden">
+                  <div className="bg-surface-container-lowest p-4 sm:p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] shadow-sm border border-surface-container-high transition-all duration-300 w-full relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-5">
                       <Fuel size={120} />
                     </div>
@@ -3438,9 +3438,9 @@ export function ReportsScreen({
                           )}
 
                           {/* Fuel History List */}
-                          <div className="max-h-[440px] overflow-y-auto pr-2 custom-scrollbar relative">
+                          <div className="max-h-[440px] overflow-y-auto overflow-x-auto pr-2 custom-scrollbar relative">
                             {filteredPerformanceRecords.length > 0 ? (
-                              <div className="space-y-2">
+                              <div className="space-y-2 min-w-[550px]">
                                 <div className="flex items-center px-4 py-3 text-[10px] font-black text-on-secondary uppercase tracking-widest border-b border-secondary/20 sticky top-0 bg-secondary shadow-md z-20 rounded-lg">
                                   <div className="w-16 shrink-0">{t('date')}</div>
                                   <div className="w-24 shrink-0 truncate">{language === 'pt-BR' ? 'Condutor' : (t('driver') || 'Driver')}</div>
@@ -3546,7 +3546,7 @@ export function ReportsScreen({
           {/* Right Arrow Button */}
           <button 
             onClick={() => setActiveSlide(prev => (prev + 1) % totalSlides)}
-            className="absolute -right-4 sm:-right-16 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-3 rounded-full bg-surface-container-highest shadow-xl transition-all hover:scale-105 active:scale-95 border border-outline-variant/10 text-primary hover:bg-primary hover:text-on-primary"
+            className="absolute right-1 sm:-right-16 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-3 rounded-full bg-surface-container-highest shadow-xl transition-all hover:scale-105 active:scale-95 border border-outline-variant/10 text-primary hover:bg-primary hover:text-on-primary"
             aria-label="Próximo"
           >
             <ChevronRight size={24} />

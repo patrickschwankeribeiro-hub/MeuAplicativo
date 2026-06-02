@@ -264,7 +264,7 @@ export function FixedFinanceScreen({
         {/* Form and Summary */}
         <div className="lg:col-span-4 space-y-6">
           {userProfile.vehicles && userProfile.vehicles.length > 0 ? (
-            <div className="bg-surface-container-lowest rounded-3xl p-6 shadow-sm border border-surface-container-high">
+            <div className="bg-surface-container-lowest rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-surface-container-high">
               <h3 className="text-lg font-black font-headline text-on-surface mb-6 flex items-center gap-2">
                 <Plus className="text-primary" size={20} />
                 {t('addFixedItem')}
@@ -344,7 +344,7 @@ export function FixedFinanceScreen({
               </div>
             </div>
           ) : (
-            <div className="bg-surface-container-lowest rounded-3xl p-6 py-8 text-center shadow-sm border border-surface-container-high space-y-4">
+            <div className="bg-surface-container-lowest rounded-2xl sm:rounded-3xl p-4 sm:p-6 py-8 text-center shadow-sm border border-surface-container-high space-y-4">
               <div className="w-12 h-12 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto">
                 <AlertCircle size={24} />
               </div>
@@ -362,7 +362,7 @@ export function FixedFinanceScreen({
 
         {/* List */}
         <div className="lg:col-span-8 space-y-6">
-          <div className="bg-surface-container-lowest rounded-3xl p-6 shadow-sm border border-surface-container-high">
+          <div className="bg-surface-container-lowest rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-surface-container-high">
             <div className="space-y-6">
               {fixedExpenses.length === 0 && fixedIncomes.length === 0 ? (
                 <div className="py-12 text-center">

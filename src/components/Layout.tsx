@@ -207,8 +207,25 @@ export function Layout({
   onInstallPwa?: () => void
 }) {
   const { language } = useLanguage();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
   const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsSidebarOpen(false);
+      } else {
+        setIsSidebarOpen(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -268,7 +285,7 @@ export function Layout({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="p-8 pt-12 max-w-5xl mx-auto w-full"
+            className="p-4 md:p-8 pt-20 md:pt-12 max-w-5xl mx-auto w-full"
           >
             {children}
           </motion.div>
